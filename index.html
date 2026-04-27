@@ -1847,75 +1847,47 @@ function fmtDateTH(iso) {
 
 function printReport() {
   var reportHtml = document.getElementById('rpt-output').innerHTML;
-  // ดึง CSS ที่จำเป็น
-  var styles = '';
-  for (var i = 0; i < document.styleSheets.length; i++) {
-    try {
-      var rules = document.styleSheets[i].cssRules || document.styleSheets[i].rules;
-      if (rules) {
-        for (var j = 0; j < rules.length; j++) {
-          styles += rules[j].cssText + '\n';
-        }
-      }
-    } catch(e) {}
-  }
+  var CSS = [
+    '* { box-sizing:border-box; margin:0; padding:0; }',
+    'body { font-family:-apple-system,"Segoe UI",sans-serif; font-size:10pt; background:#fff; color:#000; }',
+    '@page { size:A4 portrait; margin:10mm 12mm; }',
+    '.iso-page { display:block; width:100%; page-break-after:always !important; break-after:page !important; }',
+    '.iso-page:last-child { page-break-after:avoid!important; break-after:avoid!important; }',
+    'table { width:100%; border-collapse:collapse; table-layout:fixed; }',
+    'th,td { border:1px solid #333; padding:4pt 5pt; vertical-align:top; font-size:10pt; }',
+    'th { background:#f0f0f0; font-weight:700; -webkit-print-color-adjust:exact; print-color-adjust:exact; }',
+    'tr { break-inside:avoid; page-break-inside:avoid; }',
+    'img { max-width:65pt; max-height:65pt; object-fit:cover; display:block; }',
+    '.rpt-print-btn,.no-print { display:none!important; }',
+    '.rpt-page { display:block; width:100%; page-break-after:always!important; break-after:page!important; }',
+    '.rpt-page:last-child { page-break-after:avoid!important; break-after:avoid!important; }',
+    '.rpt-stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:10px; }',
+    '.rpt-stat { border:1px solid #ddd; padding:8px; text-align:center; }',
+    '.rpt-stat-val { font-size:18px; font-weight:700; }',
+    '.rpt-stat-lbl { font-size:10px; color:#666; }',
+    '.rpt-table { width:100%; border-collapse:collapse; }',
+    '.rpt-table th,.rpt-table td { border:1px solid #333; padding:4pt 5pt; vertical-align:top; font-size:10pt; }',
+    '.rpt-table th { background:#f0f0f0; font-weight:700; -webkit-print-color-adjust:exact; print-color-adjust:exact; }'
+  ].join('\n');
 
-  var win = window.open('', '_blank', 'width=900,height=700');
-  win.document.write('<!DOCTYPE html><html><head>'
-    + '<meta charset="UTF-8">'
-    + '<style>'
-    // reset
-    + '* { box-sizing: border-box; margin: 0; padding: 0; }'
-    + 'body { font-family: -apple-system, "Segoe UI", sans-serif; background: #fff; color: #000; }'
-    // iso-page = 1 หน้า A4 พอดี
-    + '.iso-page {'
-    + '  display: block;'
-    + '  width: 100%;'
-    + '  padding: 0;'
-    + '  margin: 0;'
-    + '  box-sizing: border-box;'
-    + '  page-break-after: always;'
-    + '  break-after: page;'
-    + '}'
-    + '.iso-page:last-child { page-break-after: avoid; break-after: avoid; }'
-    // rpt-page สำหรับ report อื่น
-    + '.rpt-page {'
-    + '  display: block;'
-    + '  padding: 10mm 12mm;'
-    + '  box-sizing: border-box;'
-    + '  page-break-after: always;'
-    + '  break-after: page;'
-    + '}'
-    + '.rpt-page:last-child { page-break-after: avoid; break-after: avoid; }'
-    // ตาราง
-    + 'table { width: 100%; border-collapse: collapse; table-layout: fixed; }'
-    + 'col:nth-child(1) { width: 58pt; }'
-    + 'col:nth-child(3), col:nth-child(4) { width: 56pt; }'
-    + 'col:nth-child(5) { width: 44pt; }'
-    + 'th, td { border: 1px solid #333; padding: 5pt 4pt; vertical-align: top; }'
-    + 'th { background: #f0f0f0; font-weight: 700; }'
-    + 'tr { page-break-inside: avoid; break-inside: avoid; }'
-    + 'img { max-width: 68pt; max-height: 68pt; object-fit: cover; }'
-    // รูปภาพ
-    + '.rpt-print-btn, .no-print { display: none !important; }'
-    // stat grid
-    + '.rpt-stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }'
-    + '.rpt-stat { border: 1px solid #ddd; padding: 10px; text-align: center; border-radius: 6px; }'
-    + '.rpt-stat-val { font-size: 22px; font-weight: 700; }'
-    + '.rpt-stat-lbl { font-size: 11px; color: #666; margin-top: 2px; }'
-    + '.rpt-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #666; margin: 12px 0 6px; letter-spacing: .05em; }'
-    + '.rpt-table { width: 100%; border-collapse: collapse; }'
-    + '.rpt-table th, .rpt-table td { border: 1px solid #333; padding: 5pt 4pt; vertical-align: top; }'
-    + '.rpt-table th { background: #f0f0f0; font-weight: 700; }'
-    + '@page { size: A4 portrait; margin: 10mm 12mm; }'
-    + '</style>'
-    + '</head><body>'
-    + reportHtml
-    + '</body></html>');
+  var win = window.open('', '_blank');
+  if (!win) { showToast('กรุณา Allow Popup แล้วลองใหม่'); return; }
+  win.document.open();
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<style>' + CSS + '</style></head><body>' + reportHtml + '</body></html>');
   win.document.close();
-  win.onload = function() {
-    setTimeout(function(){ win.print(); }, 500);
-  };
+
+  var imgs = win.document.images;
+  var total = imgs.length, loaded = 0;
+  function tryPrint() {
+    loaded++;
+    if (loaded >= total) setTimeout(function(){ win.print(); }, 200);
+  }
+  if (total === 0) { setTimeout(function(){ win.print(); }, 200); return; }
+  for (var i = 0; i < total; i++) {
+    if (imgs[i].complete) tryPrint();
+    else { imgs[i].onload = tryPrint; imgs[i].onerror = tryPrint; }
+  }
 }
 
 // ── Report 1: Daily ISO Form ────────────────────────────────
