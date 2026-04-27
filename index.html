@@ -283,6 +283,42 @@
   .gantt-cells{position:relative;flex:1;height:34px}
   .g-bar{position:absolute;height:10px;border-radius:3px}
   .slip-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;background:var(--color-background-warning,#FAEEDA);color:#854F0B}
+
+  /* ══ PRINT STYLES ══ */
+  @media print {
+    .nav, .app-header, #page-report .card:first-child, .btn-primary, #rpt-loading { display: none !important; }
+    .page { display: block !important; padding: 0 !important; }
+    body { font-size: 11pt; color: #000; background: #fff; }
+    .rpt-page { page-break-after: always; padding: 10mm; box-sizing: border-box; }
+    .rpt-page:last-child { page-break-after: avoid; }
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    .rpt-table th, .rpt-table td { border: 1px solid #333; padding: 4pt 6pt; vertical-align: top; }
+    .rpt-table th { background: #f0f0f0; font-weight: bold; }
+    .rpt-photo { width: 80px; height: 80px; object-fit: cover; margin: 2px; }
+    .rpt-header { text-align: center; margin-bottom: 8pt; }
+    .rpt-company { font-size: 13pt; font-weight: bold; }
+    .rpt-title { font-size: 12pt; font-weight: bold; }
+    .rpt-meta { font-size: 10pt; margin-top: 4pt; }
+    .rpt-footer { text-align: right; font-size: 9pt; color: #555; margin-top: 4pt; }
+    .no-print { display: none !important; }
+  }
+  /* Screen preview of report */
+  .rpt-page { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .rpt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rpt-table th { background: #f5f5f4; font-weight: 600; padding: 8px 10px; border: 1px solid #ddd; text-align: left; font-size: 12px; }
+  .rpt-table td { padding: 8px 10px; border: 1px solid #ddd; vertical-align: top; font-size: 13px; }
+  .rpt-photo { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin: 2px; cursor: pointer; }
+  .rpt-header { margin-bottom: 14px; }
+  .rpt-company { font-size: 16px; font-weight: 700; }
+  .rpt-title { font-size: 14px; font-weight: 600; margin-top: 2px; color: var(--muted); }
+  .rpt-meta { font-size: 13px; margin-top: 6px; }
+  .rpt-footer { text-align: right; font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .rpt-print-btn { padding: 8px 20px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 12px; font-weight: 600; }
+  .rpt-section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 8px; }
+  .rpt-stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
+  .rpt-stat { background: #f5f5f4; border-radius: 8px; padding: 12px; text-align: center; }
+  .rpt-stat-val { font-size: 22px; font-weight: 700; }
+  .rpt-stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
 </style>
 
 
@@ -336,6 +372,7 @@
   <button class="nav-btn" onclick="showPage('new-issue',this)" data-icon="＋">แจ้งเรื่อง</button>
   <button class="nav-btn" id="nav-admin" onclick="showPage('admin',this)" data-icon="⚙️" style="display:none">Admin</button>
   <button class="nav-btn" id="nav-gantt" onclick="showPage('gantt',this)" data-icon="📅">Gantt</button>
+  <button class="nav-btn" id="nav-report" onclick="showPage('report',this)" data-icon="📄">Report</button>
 </nav>
 
 <!-- ══ PAGE: INPUT ══ -->
@@ -581,6 +618,43 @@
   </div>
 </div>
 
+<!-- ══ PAGE: REPORT ══ -->
+<div id="page-report" class="page">
+  <!-- Filter Bar -->
+  <div class="card" style="margin-bottom:12px;padding:14px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px">สร้างรายงาน</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div class="form-label">จากวันที่</div>
+        <input type="date" id="rpt-from" style="padding:8px 10px;font-size:14px">
+      </div>
+      <div>
+        <div class="form-label">ถึงวันที่</div>
+        <input type="date" id="rpt-to" style="padding:8px 10px;font-size:14px">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div class="form-label">โครงการ</div>
+        <select id="rpt-project"></select>
+      </div>
+      <div>
+        <div class="form-label">ประเภทรายงาน</div>
+        <select id="rpt-type">
+          <option value="daily">ใบความคืบหน้ารายวัน (ISO)</option>
+          <option value="weekly">Weekly Summary</option>
+          <option value="status">Project Status Report</option>
+          <option value="issue">Issue & Action Report</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="generateReport()" id="rpt-btn">สร้างรายงาน</button>
+  </div>
+  <!-- Report Output -->
+  <div id="rpt-loading" class="loading" style="display:none"><div class="spinner"></div>กำลังสร้างรายงาน...</div>
+  <div id="rpt-output"></div>
+</div>
+
 <!-- IMAGE MODAL -->
 <div class="img-modal" id="img-modal">
   <div id="modal-close" onclick="document.getElementById('img-modal').classList.remove('open')"
@@ -692,7 +766,7 @@ function call(action, payload, cb) {
 
 // ══ PROJECT SELECTS ══
 function populateProjectSelects() {
-  ['in-project','tr-project','ni-project','ga-project'].forEach(function(id) {
+  ['in-project','tr-project','ni-project','ga-project','rpt-project'].forEach(function(id) {
     const sel = document.getElementById(id);
     if (!sel) return;
     sel.innerHTML = '';
@@ -1600,6 +1674,332 @@ function renderGantt(cats) {
   });
 }
 
+
+// ══ REPORT ══
+function generateReport() {
+  var from    = document.getElementById('rpt-from').value;
+  var to      = document.getElementById('rpt-to').value;
+  var proj    = document.getElementById('rpt-project').value;
+  var type    = document.getElementById('rpt-type').value;
+  var btn     = document.getElementById('rpt-btn');
+  var loading = document.getElementById('rpt-loading');
+  var output  = document.getElementById('rpt-output');
+
+  if (!from || !to) { showToast('กรุณาเลือกช่วงวันที่'); return; }
+
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  loading.style.display = 'block'; output.innerHTML = '';
+
+  call('getProgressLog', { project: proj }, function(logR) {
+    call('getIssues', { project: proj }, function(issR) {
+      call('getDashboard', { project: proj }, function(dashR) {
+        loading.style.display = 'none';
+        btn.disabled = false; btn.textContent = 'สร้างรายงาน';
+
+        var logs   = logR.success  ? logR.logs    : [];
+        var issues = issR.success  ? issR.issues  : [];
+        var dash   = dashR.success ? dashR        : {};
+
+        // Filter by date range
+        logs = logs.filter(function(l) {
+          var d = toISO(l.date);
+          return d >= from && d <= to;
+        });
+        issues = issues.filter(function(i) {
+          var d = toISO(i.timestamp ? i.timestamp.substring(0,10) : '');
+          return d >= from && d <= to;
+        });
+
+        if (type === 'daily')   renderDailyReport(proj, from, to, logs);
+        else if (type === 'weekly') renderWeeklyReport(proj, from, to, logs, dash);
+        else if (type === 'status') renderStatusReport(proj, from, to, logs, dash, issues);
+        else if (type === 'issue')  renderIssueReport(proj, from, to, issues);
+      });
+    });
+  });
+}
+
+function fmtDateTH(iso) {
+  if (!iso) return '';
+  var p = iso.split('-');
+  if (p.length !== 3) return iso;
+  var months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return parseInt(p[2]) + ' ' + months[parseInt(p[1])] + ' ' + p[0];
+}
+
+function printReport() { window.print(); }
+
+function rptHeader(proj, title, from, to) {
+  return '<div class="rpt-header">'
+    + '<div class="rpt-company">บริษัท อีสเทิร์นซิลิเกต จำกัด</div>'
+    + '<div class="rpt-title">' + title + '</div>'
+    + '<div class="rpt-meta">Project: <strong>' + escHtml(proj) + '</strong>'
+    + ' &nbsp;|&nbsp; ช่วงวันที่: <strong>' + fmtDateTH(from) + ' — ' + fmtDateTH(to) + '</strong></div>'
+    + '</div>';
+}
+
+// ── Report 1: Daily ISO Form ──────────────────────────────────
+function renderDailyReport(proj, from, to, logs) {
+  var output = document.getElementById('rpt-output');
+
+  // Group logs by date
+  var byDate = {}, dateOrder = [], seenD = {};
+  logs.forEach(function(l) {
+    var d = toISO(l.date);
+    if (!seenD[d]) { dateOrder.push(d); seenD[d] = true; }
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(l);
+  });
+  dateOrder.sort();
+
+  if (!dateOrder.length) {
+    output.innerHTML = '<div class="loading">ไม่มีข้อมูลในช่วงวันที่นี้</div>';
+    return;
+  }
+
+  // กำหนด rows ต่อหน้า
+  var ROWS_PER_PAGE = 15;
+  var allRows = [];
+  dateOrder.forEach(function(date) {
+    byDate[date].forEach(function(l) { allRows.push({date: date, log: l}); });
+  });
+
+  // แบ่งเป็นหน้าๆ
+  var pages = [];
+  for (var i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
+    pages.push(allRows.slice(i, i + ROWS_PER_PAGE));
+  }
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+
+  pages.forEach(function(rows, pageIdx) {
+    html += '<div class="rpt-page">';
+    html += rptHeader(proj, 'ใบแสดงความคืบหน้าในการออกแบบ / การดำเนินการ', from, to);
+    html += '<table class="rpt-table">';
+    html += '<thead><tr>'
+      + '<th style="width:80px">วันที่</th>'
+      + '<th style="width:100px">หมวดงาน</th>'
+      + '<th style="width:50px;text-align:center">%</th>'
+      + '<th>รายละเอียดความคืบหน้า</th>'
+      + '<th style="width:80px">รูปภาพ</th>'
+      + '<th style="width:80px">ผู้บันทึก</th>'
+      + '<th style="width:80px">ผู้ตรวจสอบ</th>'
+      + '</tr></thead><tbody>';
+
+    rows.forEach(function(row) {
+      var l = row.log;
+      var photoHtml = '';
+      if (l.imageUrl) {
+        var urls = l.imageUrl.split(',').filter(function(u){ return u.trim(); });
+        urls.forEach(function(u) {
+          photoHtml += '<img class="rpt-photo" src="' + escHtml(u.trim()) + '" onclick="openImg(this.src)">';
+        });
+      }
+      html += '<tr>'
+        + '<td>' + escHtml(l.date) + '</td>'
+        + '<td>' + escHtml(l.category) + '</td>'
+        + '<td style="text-align:center;font-weight:700">' + l.percent + '%</td>'
+        + '<td>' + escHtml(l.detail) + '</td>'
+        + '<td>' + photoHtml + '</td>'
+        + '<td>' + escHtml(l.user) + '</td>'
+        + '<td>' + escHtml(l.verifiedBy || '') + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div class="rpt-footer">ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + (pageIdx+1) + '/' + pages.length + '</div>';
+    html += '</div>';
+  });
+
+  output.innerHTML = html;
+}
+
+// ── Report 2: Weekly Summary ──────────────────────────────────
+function renderWeeklyReport(proj, from, to, logs, dash) {
+  var output = document.getElementById('rpt-output');
+  var cats   = dash.categories || [];
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+  html += '<div class="rpt-page">';
+  html += rptHeader(proj, 'รายงานสรุปความคืบหน้า (Weekly Summary)', from, to);
+
+  // Stats
+  html += '<div class="rpt-stat-grid">'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#1D9E75">' + (dash.overallActual||0) + '%</div><div class="rpt-stat-lbl">Actual</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + (dash.overallPlan||0) + '%</div><div class="rpt-stat-lbl">Plan</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:' + (dash.variance>=0?'#1D9E75':'#E24B4A') + '">' + (dash.variance>=0?'+':'') + (dash.variance||0) + '%</div><div class="rpt-stat-lbl">Variance</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + logs.length + '</div><div class="rpt-stat-lbl">รายการบันทึก</div></div>'
+    + '</div>';
+
+  // Category progress table
+  html += '<div class="rpt-section-title">ความคืบหน้าแต่ละหมวดงาน</div>';
+  html += '<table class="rpt-table"><thead><tr>'
+    + '<th>หมวดงาน</th><th style="text-align:center">Weight</th>'
+    + '<th style="text-align:center">Actual %</th><th style="text-align:center">Plan %</th>'
+    + '<th style="text-align:center">Variance</th><th>สถานะ</th>'
+    + '</tr></thead><tbody>';
+  cats.forEach(function(c) {
+    var vcolor = c.variance >= 0 ? '#1D9E75' : (c.variance < -10 ? '#E24B4A' : '#BA7517');
+    var badge  = c.status === 'On Track' ? '✅ On Track' : c.status === 'Critical' ? '🔴 Critical' : '⚠️ Delay';
+    html += '<tr>'
+      + '<td>' + escHtml(c.name) + '</td>'
+      + '<td style="text-align:center">' + c.weight + '%</td>'
+      + '<td style="text-align:center;font-weight:700">' + c.actual + '%</td>'
+      + '<td style="text-align:center">' + c.planPct + '%</td>'
+      + '<td style="text-align:center;color:' + vcolor + ';font-weight:700">' + (c.variance>=0?'+':'') + c.variance + '%</td>'
+      + '<td>' + badge + '</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+
+  // Activity log summary
+  if (logs.length > 0) {
+    html += '<div class="rpt-section-title">บันทึกกิจกรรมในช่วงเวลานี้</div>';
+    html += '<table class="rpt-table"><thead><tr>'
+      + '<th style="width:80px">วันที่</th><th style="width:120px">หมวดงาน</th>'
+      + '<th style="width:50px;text-align:center">%</th><th>รายละเอียด</th><th style="width:80px">ผู้บันทึก</th>'
+      + '</tr></thead><tbody>';
+    logs.forEach(function(l) {
+      html += '<tr><td>' + escHtml(l.date) + '</td><td>' + escHtml(l.category) + '</td>'
+        + '<td style="text-align:center;font-weight:700">' + l.percent + '%</td>'
+        + '<td>' + escHtml(l.detail) + '</td><td>' + escHtml(l.user) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<div class="rpt-footer">Project Tracker Report &nbsp;|&nbsp; สร้างเมื่อ ' + new Date().toLocaleDateString('th-TH') + '</div>';
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+// ── Report 3: Project Status ──────────────────────────────────
+function renderStatusReport(proj, from, to, logs, dash, issues) {
+  var output = document.getElementById('rpt-output');
+  var cats   = dash.categories || [];
+  var openIss = issues.filter(function(i){ return i.status === 'Open'; }).length;
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+  html += '<div class="rpt-page">';
+  html += rptHeader(proj, 'Project Status Report', from, to);
+
+  html += '<div class="rpt-stat-grid">'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#1D9E75">' + (dash.overallActual||0) + '%</div><div class="rpt-stat-lbl">Overall Actual</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + (dash.overallPlan||0) + '%</div><div class="rpt-stat-lbl">Overall Plan</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#E24B4A">' + openIss + '</div><div class="rpt-stat-lbl">Open Issues</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + cats.filter(function(c){return c.status==='On Track';}).length + '/' + cats.length + '</div><div class="rpt-stat-lbl">On Track</div></div>'
+    + '</div>';
+
+  // Category status
+  html += '<div class="rpt-section-title">สถานะแต่ละหมวดงาน</div>';
+  html += '<table class="rpt-table"><thead><tr>'
+    + '<th>หมวดงาน</th><th>ผู้รับผิดชอบ</th>'
+    + '<th style="text-align:center">Actual</th><th style="text-align:center">Plan</th>'
+    + '<th>Plan End</th><th>สถานะ</th>'
+    + '</tr></thead><tbody>';
+  cats.forEach(function(c) {
+    var badge = c.status === 'On Track' ? '✅ On Track' : c.status === 'Critical' ? '🔴 Critical' : '⚠️ Delay';
+    html += '<tr><td>' + escHtml(c.name) + '</td><td>' + escHtml(c.responsible||'') + '</td>'
+      + '<td style="text-align:center;font-weight:700">' + c.actual + '%</td>'
+      + '<td style="text-align:center">' + c.planPct + '%</td>'
+      + '<td>' + escHtml(c.planEnd||'') + '</td>'
+      + '<td>' + badge + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  // Open issues
+  if (openIss > 0) {
+    html += '<div class="rpt-section-title">Issues ที่ยังค้างอยู่</div>';
+    html += '<table class="rpt-table"><thead><tr>'
+      + '<th style="width:80px">วันที่</th><th style="width:80px">ประเภท</th>'
+      + '<th>หัวข้อ</th><th style="width:100px">ผู้แจ้ง</th><th>ผู้รับผิดชอบ</th>'
+      + '</tr></thead><tbody>';
+    issues.filter(function(i){ return i.status==='Open'; }).forEach(function(i) {
+      html += '<tr><td>' + escHtml(i.timestamp?i.timestamp.substring(0,10):'') + '</td>'
+        + '<td>' + escHtml(i.type) + '</td><td>' + escHtml(i.title) + '</td>'
+        + '<td>' + escHtml(i.reporter) + '</td><td>' + (i.taggedUsers||[]).join(', ') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px">';
+  html += '<div><div class="rpt-section-title">ผู้จัดทำรายงาน</div><div style="border-top:1px solid #333;margin-top:30px;padding-top:4px;font-size:11px;color:var(--muted)">ชื่อ / ลายเซ็น / วันที่</div></div>';
+  html += '<div><div class="rpt-section-title">ผู้อนุมัติ</div><div style="border-top:1px solid #333;margin-top:30px;padding-top:4px;font-size:11px;color:var(--muted)">ชื่อ / ลายเซ็น / วันที่</div></div>';
+  html += '</div>';
+  html += '<div class="rpt-footer">Project Tracker Report &nbsp;|&nbsp; สร้างเมื่อ ' + new Date().toLocaleDateString('th-TH') + '</div>';
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+// ── Report 4: Issue & Action ──────────────────────────────────
+function renderIssueReport(proj, from, to, issues) {
+  var output = document.getElementById('rpt-output');
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+  html += '<div class="rpt-page">';
+  html += rptHeader(proj, 'Issue & Action Report', from, to);
+
+  var byStatus = { 'Open': [], 'In Progress': [], 'Closed': [] };
+  issues.forEach(function(i) {
+    if (byStatus[i.status]) byStatus[i.status].push(i);
+    else byStatus['Open'].push(i);
+  });
+
+  html += '<div class="rpt-stat-grid">'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#E24B4A">' + byStatus['Open'].length + '</div><div class="rpt-stat-lbl">Open</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#BA7517">' + byStatus['In Progress'].length + '</div><div class="rpt-stat-lbl">In Progress</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#1D9E75">' + byStatus['Closed'].length + '</div><div class="rpt-stat-lbl">Closed</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + issues.length + '</div><div class="rpt-stat-lbl">ทั้งหมด</div></div>'
+    + '</div>';
+
+  ['Open','In Progress','Closed'].forEach(function(status) {
+    var list = byStatus[status];
+    if (!list.length) return;
+    html += '<div class="rpt-section-title">' + status + ' (' + list.length + ' เรื่อง)</div>';
+    html += '<table class="rpt-table"><thead><tr>'
+      + '<th style="width:80px">วันที่</th><th style="width:70px">ประเภท</th>'
+      + '<th>หัวข้อ / รายละเอียด</th><th style="width:80px">ผู้แจ้ง</th>'
+      + '<th style="width:100px">ผู้รับผิดชอบ</th><th style="width:70px">สถานะ</th>'
+      + '</tr></thead><tbody>';
+    list.forEach(function(i) {
+      var replies = (i.replies||[]).map(function(r){ return r.responder+': '+r.message; }).join(' | ');
+      html += '<tr><td>' + escHtml(i.timestamp?i.timestamp.substring(0,10):'') + '</td>'
+        + '<td>' + escHtml(i.type) + '</td>'
+        + '<td><strong>' + escHtml(i.title) + '</strong>'
+        + (i.detail ? '<br><span style="font-size:11px;color:#666">'+escHtml(i.detail)+'</span>' : '')
+        + (replies ? '<br><span style="font-size:11px;color:#1D9E75">💬 '+escHtml(replies)+'</span>' : '')
+        + '</td>'
+        + '<td>' + escHtml(i.reporter) + '</td>'
+        + '<td>' + escHtml((i.taggedUsers||[]).join(', ')) + '</td>'
+        + '<td>' + escHtml(i.status) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  });
+
+  html += '<div class="rpt-footer">Issue & Action Report &nbsp;|&nbsp; สร้างเมื่อ ' + new Date().toLocaleDateString('th-TH') + '</div>';
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+
+function initReportPage() {
+  // Set default date range to this week
+  var today = new Date();
+  var dayOfWeek = today.getDay();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  var fmt = function(d) { return d.toISOString().split('T')[0]; };
+  var fromEl = document.getElementById('rpt-from');
+  var toEl   = document.getElementById('rpt-to');
+  if (!fromEl.value) fromEl.value = fmt(monday);
+  if (!toEl.value)   toEl.value   = fmt(today);
+  // Populate project
+  var sel = document.getElementById('rpt-project');
+  if (sel && sel.options.length === 0) {
+    allProjects.forEach(function(p) {
+      sel.innerHTML += '<option value="'+p+'">'+p+'</option>';
+    });
+  }
+}
+
 // ══ NAVIGATION ══
 function showPage(p, btn) {
   document.querySelectorAll('.page').forEach(function(el){ el.classList.remove('active'); });
@@ -1608,6 +2008,7 @@ function showPage(p, btn) {
   if (btn) btn.classList.add('active');
   if (p === 'dashboard') { if (!window._dashLoaded) loadDashboard(); else { document.getElementById('dash-loading').style.display='none'; document.getElementById('dash-content').style.display='block'; } }
   if (p === 'gantt')     { if (!window._ganttLoaded) loadGantt(); }
+  if (p === 'report')    { initReportPage(); }
   if (p === 'issues')    loadIssues();
   if (p === 'new-issue') loadNiCategories();
   if (p === 'admin')     loadAdminCats();
@@ -1901,6 +2302,332 @@ function renderLogItem(l) {
 }
 
 
+
+// ══ REPORT ══
+function generateReport() {
+  var from    = document.getElementById('rpt-from').value;
+  var to      = document.getElementById('rpt-to').value;
+  var proj    = document.getElementById('rpt-project').value;
+  var type    = document.getElementById('rpt-type').value;
+  var btn     = document.getElementById('rpt-btn');
+  var loading = document.getElementById('rpt-loading');
+  var output  = document.getElementById('rpt-output');
+
+  if (!from || !to) { showToast('กรุณาเลือกช่วงวันที่'); return; }
+
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  loading.style.display = 'block'; output.innerHTML = '';
+
+  call('getProgressLog', { project: proj }, function(logR) {
+    call('getIssues', { project: proj }, function(issR) {
+      call('getDashboard', { project: proj }, function(dashR) {
+        loading.style.display = 'none';
+        btn.disabled = false; btn.textContent = 'สร้างรายงาน';
+
+        var logs   = logR.success  ? logR.logs    : [];
+        var issues = issR.success  ? issR.issues  : [];
+        var dash   = dashR.success ? dashR        : {};
+
+        // Filter by date range
+        logs = logs.filter(function(l) {
+          var d = toISO(l.date);
+          return d >= from && d <= to;
+        });
+        issues = issues.filter(function(i) {
+          var d = toISO(i.timestamp ? i.timestamp.substring(0,10) : '');
+          return d >= from && d <= to;
+        });
+
+        if (type === 'daily')   renderDailyReport(proj, from, to, logs);
+        else if (type === 'weekly') renderWeeklyReport(proj, from, to, logs, dash);
+        else if (type === 'status') renderStatusReport(proj, from, to, logs, dash, issues);
+        else if (type === 'issue')  renderIssueReport(proj, from, to, issues);
+      });
+    });
+  });
+}
+
+function fmtDateTH(iso) {
+  if (!iso) return '';
+  var p = iso.split('-');
+  if (p.length !== 3) return iso;
+  var months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return parseInt(p[2]) + ' ' + months[parseInt(p[1])] + ' ' + p[0];
+}
+
+function printReport() { window.print(); }
+
+function rptHeader(proj, title, from, to) {
+  return '<div class="rpt-header">'
+    + '<div class="rpt-company">บริษัท อีสเทิร์นซิลิเกต จำกัด</div>'
+    + '<div class="rpt-title">' + title + '</div>'
+    + '<div class="rpt-meta">Project: <strong>' + escHtml(proj) + '</strong>'
+    + ' &nbsp;|&nbsp; ช่วงวันที่: <strong>' + fmtDateTH(from) + ' — ' + fmtDateTH(to) + '</strong></div>'
+    + '</div>';
+}
+
+// ── Report 1: Daily ISO Form ──────────────────────────────────
+function renderDailyReport(proj, from, to, logs) {
+  var output = document.getElementById('rpt-output');
+
+  // Group logs by date
+  var byDate = {}, dateOrder = [], seenD = {};
+  logs.forEach(function(l) {
+    var d = toISO(l.date);
+    if (!seenD[d]) { dateOrder.push(d); seenD[d] = true; }
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(l);
+  });
+  dateOrder.sort();
+
+  if (!dateOrder.length) {
+    output.innerHTML = '<div class="loading">ไม่มีข้อมูลในช่วงวันที่นี้</div>';
+    return;
+  }
+
+  // กำหนด rows ต่อหน้า
+  var ROWS_PER_PAGE = 15;
+  var allRows = [];
+  dateOrder.forEach(function(date) {
+    byDate[date].forEach(function(l) { allRows.push({date: date, log: l}); });
+  });
+
+  // แบ่งเป็นหน้าๆ
+  var pages = [];
+  for (var i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
+    pages.push(allRows.slice(i, i + ROWS_PER_PAGE));
+  }
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+
+  pages.forEach(function(rows, pageIdx) {
+    html += '<div class="rpt-page">';
+    html += rptHeader(proj, 'ใบแสดงความคืบหน้าในการออกแบบ / การดำเนินการ', from, to);
+    html += '<table class="rpt-table">';
+    html += '<thead><tr>'
+      + '<th style="width:80px">วันที่</th>'
+      + '<th style="width:100px">หมวดงาน</th>'
+      + '<th style="width:50px;text-align:center">%</th>'
+      + '<th>รายละเอียดความคืบหน้า</th>'
+      + '<th style="width:80px">รูปภาพ</th>'
+      + '<th style="width:80px">ผู้บันทึก</th>'
+      + '<th style="width:80px">ผู้ตรวจสอบ</th>'
+      + '</tr></thead><tbody>';
+
+    rows.forEach(function(row) {
+      var l = row.log;
+      var photoHtml = '';
+      if (l.imageUrl) {
+        var urls = l.imageUrl.split(',').filter(function(u){ return u.trim(); });
+        urls.forEach(function(u) {
+          photoHtml += '<img class="rpt-photo" src="' + escHtml(u.trim()) + '" onclick="openImg(this.src)">';
+        });
+      }
+      html += '<tr>'
+        + '<td>' + escHtml(l.date) + '</td>'
+        + '<td>' + escHtml(l.category) + '</td>'
+        + '<td style="text-align:center;font-weight:700">' + l.percent + '%</td>'
+        + '<td>' + escHtml(l.detail) + '</td>'
+        + '<td>' + photoHtml + '</td>'
+        + '<td>' + escHtml(l.user) + '</td>'
+        + '<td>' + escHtml(l.verifiedBy || '') + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div class="rpt-footer">ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + (pageIdx+1) + '/' + pages.length + '</div>';
+    html += '</div>';
+  });
+
+  output.innerHTML = html;
+}
+
+// ── Report 2: Weekly Summary ──────────────────────────────────
+function renderWeeklyReport(proj, from, to, logs, dash) {
+  var output = document.getElementById('rpt-output');
+  var cats   = dash.categories || [];
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+  html += '<div class="rpt-page">';
+  html += rptHeader(proj, 'รายงานสรุปความคืบหน้า (Weekly Summary)', from, to);
+
+  // Stats
+  html += '<div class="rpt-stat-grid">'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#1D9E75">' + (dash.overallActual||0) + '%</div><div class="rpt-stat-lbl">Actual</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + (dash.overallPlan||0) + '%</div><div class="rpt-stat-lbl">Plan</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:' + (dash.variance>=0?'#1D9E75':'#E24B4A') + '">' + (dash.variance>=0?'+':'') + (dash.variance||0) + '%</div><div class="rpt-stat-lbl">Variance</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + logs.length + '</div><div class="rpt-stat-lbl">รายการบันทึก</div></div>'
+    + '</div>';
+
+  // Category progress table
+  html += '<div class="rpt-section-title">ความคืบหน้าแต่ละหมวดงาน</div>';
+  html += '<table class="rpt-table"><thead><tr>'
+    + '<th>หมวดงาน</th><th style="text-align:center">Weight</th>'
+    + '<th style="text-align:center">Actual %</th><th style="text-align:center">Plan %</th>'
+    + '<th style="text-align:center">Variance</th><th>สถานะ</th>'
+    + '</tr></thead><tbody>';
+  cats.forEach(function(c) {
+    var vcolor = c.variance >= 0 ? '#1D9E75' : (c.variance < -10 ? '#E24B4A' : '#BA7517');
+    var badge  = c.status === 'On Track' ? '✅ On Track' : c.status === 'Critical' ? '🔴 Critical' : '⚠️ Delay';
+    html += '<tr>'
+      + '<td>' + escHtml(c.name) + '</td>'
+      + '<td style="text-align:center">' + c.weight + '%</td>'
+      + '<td style="text-align:center;font-weight:700">' + c.actual + '%</td>'
+      + '<td style="text-align:center">' + c.planPct + '%</td>'
+      + '<td style="text-align:center;color:' + vcolor + ';font-weight:700">' + (c.variance>=0?'+':'') + c.variance + '%</td>'
+      + '<td>' + badge + '</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+
+  // Activity log summary
+  if (logs.length > 0) {
+    html += '<div class="rpt-section-title">บันทึกกิจกรรมในช่วงเวลานี้</div>';
+    html += '<table class="rpt-table"><thead><tr>'
+      + '<th style="width:80px">วันที่</th><th style="width:120px">หมวดงาน</th>'
+      + '<th style="width:50px;text-align:center">%</th><th>รายละเอียด</th><th style="width:80px">ผู้บันทึก</th>'
+      + '</tr></thead><tbody>';
+    logs.forEach(function(l) {
+      html += '<tr><td>' + escHtml(l.date) + '</td><td>' + escHtml(l.category) + '</td>'
+        + '<td style="text-align:center;font-weight:700">' + l.percent + '%</td>'
+        + '<td>' + escHtml(l.detail) + '</td><td>' + escHtml(l.user) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<div class="rpt-footer">Project Tracker Report &nbsp;|&nbsp; สร้างเมื่อ ' + new Date().toLocaleDateString('th-TH') + '</div>';
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+// ── Report 3: Project Status ──────────────────────────────────
+function renderStatusReport(proj, from, to, logs, dash, issues) {
+  var output = document.getElementById('rpt-output');
+  var cats   = dash.categories || [];
+  var openIss = issues.filter(function(i){ return i.status === 'Open'; }).length;
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+  html += '<div class="rpt-page">';
+  html += rptHeader(proj, 'Project Status Report', from, to);
+
+  html += '<div class="rpt-stat-grid">'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#1D9E75">' + (dash.overallActual||0) + '%</div><div class="rpt-stat-lbl">Overall Actual</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + (dash.overallPlan||0) + '%</div><div class="rpt-stat-lbl">Overall Plan</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#E24B4A">' + openIss + '</div><div class="rpt-stat-lbl">Open Issues</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + cats.filter(function(c){return c.status==='On Track';}).length + '/' + cats.length + '</div><div class="rpt-stat-lbl">On Track</div></div>'
+    + '</div>';
+
+  // Category status
+  html += '<div class="rpt-section-title">สถานะแต่ละหมวดงาน</div>';
+  html += '<table class="rpt-table"><thead><tr>'
+    + '<th>หมวดงาน</th><th>ผู้รับผิดชอบ</th>'
+    + '<th style="text-align:center">Actual</th><th style="text-align:center">Plan</th>'
+    + '<th>Plan End</th><th>สถานะ</th>'
+    + '</tr></thead><tbody>';
+  cats.forEach(function(c) {
+    var badge = c.status === 'On Track' ? '✅ On Track' : c.status === 'Critical' ? '🔴 Critical' : '⚠️ Delay';
+    html += '<tr><td>' + escHtml(c.name) + '</td><td>' + escHtml(c.responsible||'') + '</td>'
+      + '<td style="text-align:center;font-weight:700">' + c.actual + '%</td>'
+      + '<td style="text-align:center">' + c.planPct + '%</td>'
+      + '<td>' + escHtml(c.planEnd||'') + '</td>'
+      + '<td>' + badge + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  // Open issues
+  if (openIss > 0) {
+    html += '<div class="rpt-section-title">Issues ที่ยังค้างอยู่</div>';
+    html += '<table class="rpt-table"><thead><tr>'
+      + '<th style="width:80px">วันที่</th><th style="width:80px">ประเภท</th>'
+      + '<th>หัวข้อ</th><th style="width:100px">ผู้แจ้ง</th><th>ผู้รับผิดชอบ</th>'
+      + '</tr></thead><tbody>';
+    issues.filter(function(i){ return i.status==='Open'; }).forEach(function(i) {
+      html += '<tr><td>' + escHtml(i.timestamp?i.timestamp.substring(0,10):'') + '</td>'
+        + '<td>' + escHtml(i.type) + '</td><td>' + escHtml(i.title) + '</td>'
+        + '<td>' + escHtml(i.reporter) + '</td><td>' + (i.taggedUsers||[]).join(', ') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px">';
+  html += '<div><div class="rpt-section-title">ผู้จัดทำรายงาน</div><div style="border-top:1px solid #333;margin-top:30px;padding-top:4px;font-size:11px;color:var(--muted)">ชื่อ / ลายเซ็น / วันที่</div></div>';
+  html += '<div><div class="rpt-section-title">ผู้อนุมัติ</div><div style="border-top:1px solid #333;margin-top:30px;padding-top:4px;font-size:11px;color:var(--muted)">ชื่อ / ลายเซ็น / วันที่</div></div>';
+  html += '</div>';
+  html += '<div class="rpt-footer">Project Tracker Report &nbsp;|&nbsp; สร้างเมื่อ ' + new Date().toLocaleDateString('th-TH') + '</div>';
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+// ── Report 4: Issue & Action ──────────────────────────────────
+function renderIssueReport(proj, from, to, issues) {
+  var output = document.getElementById('rpt-output');
+
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+  html += '<div class="rpt-page">';
+  html += rptHeader(proj, 'Issue & Action Report', from, to);
+
+  var byStatus = { 'Open': [], 'In Progress': [], 'Closed': [] };
+  issues.forEach(function(i) {
+    if (byStatus[i.status]) byStatus[i.status].push(i);
+    else byStatus['Open'].push(i);
+  });
+
+  html += '<div class="rpt-stat-grid">'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#E24B4A">' + byStatus['Open'].length + '</div><div class="rpt-stat-lbl">Open</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#BA7517">' + byStatus['In Progress'].length + '</div><div class="rpt-stat-lbl">In Progress</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val" style="color:#1D9E75">' + byStatus['Closed'].length + '</div><div class="rpt-stat-lbl">Closed</div></div>'
+    + '<div class="rpt-stat"><div class="rpt-stat-val">' + issues.length + '</div><div class="rpt-stat-lbl">ทั้งหมด</div></div>'
+    + '</div>';
+
+  ['Open','In Progress','Closed'].forEach(function(status) {
+    var list = byStatus[status];
+    if (!list.length) return;
+    html += '<div class="rpt-section-title">' + status + ' (' + list.length + ' เรื่อง)</div>';
+    html += '<table class="rpt-table"><thead><tr>'
+      + '<th style="width:80px">วันที่</th><th style="width:70px">ประเภท</th>'
+      + '<th>หัวข้อ / รายละเอียด</th><th style="width:80px">ผู้แจ้ง</th>'
+      + '<th style="width:100px">ผู้รับผิดชอบ</th><th style="width:70px">สถานะ</th>'
+      + '</tr></thead><tbody>';
+    list.forEach(function(i) {
+      var replies = (i.replies||[]).map(function(r){ return r.responder+': '+r.message; }).join(' | ');
+      html += '<tr><td>' + escHtml(i.timestamp?i.timestamp.substring(0,10):'') + '</td>'
+        + '<td>' + escHtml(i.type) + '</td>'
+        + '<td><strong>' + escHtml(i.title) + '</strong>'
+        + (i.detail ? '<br><span style="font-size:11px;color:#666">'+escHtml(i.detail)+'</span>' : '')
+        + (replies ? '<br><span style="font-size:11px;color:#1D9E75">💬 '+escHtml(replies)+'</span>' : '')
+        + '</td>'
+        + '<td>' + escHtml(i.reporter) + '</td>'
+        + '<td>' + escHtml((i.taggedUsers||[]).join(', ')) + '</td>'
+        + '<td>' + escHtml(i.status) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  });
+
+  html += '<div class="rpt-footer">Issue & Action Report &nbsp;|&nbsp; สร้างเมื่อ ' + new Date().toLocaleDateString('th-TH') + '</div>';
+  html += '</div>';
+  output.innerHTML = html;
+}
+
+
+function initReportPage() {
+  // Set default date range to this week
+  var today = new Date();
+  var dayOfWeek = today.getDay();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  var fmt = function(d) { return d.toISOString().split('T')[0]; };
+  var fromEl = document.getElementById('rpt-from');
+  var toEl   = document.getElementById('rpt-to');
+  if (!fromEl.value) fromEl.value = fmt(monday);
+  if (!toEl.value)   toEl.value   = fmt(today);
+  // Populate project
+  var sel = document.getElementById('rpt-project');
+  if (sel && sel.options.length === 0) {
+    allProjects.forEach(function(p) {
+      sel.innerHTML += '<option value="'+p+'">'+p+'</option>';
+    });
+  }
+}
+
 // ══ NAVIGATION ══
 function showPage(p, btn) {
   document.querySelectorAll('.page').forEach(function(el){ el.classList.remove('active'); });
@@ -1909,6 +2636,7 @@ function showPage(p, btn) {
   if (btn) btn.classList.add('active');
   if (p === 'dashboard') { if (!window._dashLoaded) loadDashboard(); else { document.getElementById('dash-loading').style.display='none'; document.getElementById('dash-content').style.display='block'; } }
   if (p === 'gantt')     { if (!window._ganttLoaded) loadGantt(); }
+  if (p === 'report')    { initReportPage(); }
   if (p === 'issues')    loadIssues();
   if (p === 'new-issue') loadNiCategories();
   if (p === 'admin')     loadAdminCats();
