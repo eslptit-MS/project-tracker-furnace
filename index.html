@@ -817,7 +817,7 @@ function initApp() {
 }
 
 // ── API endpoint (เปลี่ยนเป็น URL ของ Apps Script ที่ Deploy แล้ว) ──
-var API_URL = 'https://script.google.com/macros/s/AKfycbyKHdaYb9zfzpRJ70VM2NVQEw94LtdX_cz9tUZXgaCKrknFkA7KQ1hBxF14Z4uWijklMQ/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbzj9RMCFxMznO63KrCeP27ov6Oxc778Jsa7qoPBWyrNdZvIGVoYJJvj1Qo0UR72AZzC/exec';
 
 function call(action, payload, cb) {
   fetch(API_URL, {
@@ -1398,27 +1398,46 @@ function submitIssue() {
 }
 
 // ══ PROJECT SETTINGS ══
-var projectSettings = { code: 'ESL-PE-2025-001', company: 'บริษัท อีสเทิร์นซิลิเกต จำกัด' };
+var projectSettings = { code: '', company: '' };
 
 function loadProjectSettings() {
-  try {
-    var saved = localStorage.getItem('projectSettings');
-    if (saved) { var p = JSON.parse(saved); projectSettings.code = p.code||projectSettings.code; projectSettings.company = p.company||projectSettings.company; }
-  } catch(e) {}
-  var ce = document.getElementById('admin-proj-code');
-  var co = document.getElementById('admin-company');
-  if (ce) ce.value = projectSettings.code;
-  if (co) co.value = projectSettings.company;
+  call('getSettings', {}, function(r) {
+    if (r.success && r.settings) {
+      projectSettings.code    = r.settings['project_code']  || 'ESL-PE-2025-001';
+      projectSettings.company = r.settings['company_name']  || 'บริษัท อีสเทิร์นซิลิเกต จำกัด';
+    }
+    // แสดงใน Admin form ถ้าเปิดอยู่
+    var ce = document.getElementById('admin-proj-code');
+    var co = document.getElementById('admin-company');
+    if (ce) ce.value = projectSettings.code;
+    if (co) co.value = projectSettings.company;
+  });
 }
 
 function saveProjectSettings() {
-  var ce = document.getElementById('admin-proj-code');
-  var co = document.getElementById('admin-company');
-  if (ce && ce.value.trim()) projectSettings.code    = ce.value.trim();
-  if (co && co.value.trim()) projectSettings.company = co.value.trim();
-  try { localStorage.setItem('projectSettings', JSON.stringify(projectSettings)); } catch(e) {}
-  var el = document.getElementById('settings-saved');
-  if (el) { el.style.display='block'; setTimeout(function(){ el.style.display='none'; }, 2000); }
+  var ce  = document.getElementById('admin-proj-code');
+  var co  = document.getElementById('admin-company');
+  var btn = document.querySelector('#page-admin .btn-sm[onclick="saveProjectSettings()"]');
+  if (!ce || !co) return;
+
+  var code    = ce.value.trim() || projectSettings.code;
+  var company = co.value.trim() || projectSettings.company;
+
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+
+  call('saveSettings', {
+    settings: { project_code: code, company_name: company }
+  }, function(r) {
+    if (btn) { btn.disabled = false; btn.textContent = 'บันทึกการตั้งค่า'; }
+    if (r.success) {
+      projectSettings.code    = code;
+      projectSettings.company = company;
+      var el = document.getElementById('settings-saved');
+      if (el) { el.style.display = 'block'; setTimeout(function(){ el.style.display='none'; }, 2500); }
+    } else {
+      showToast('Error: ' + r.error);
+    }
+  });
 }
 
 // ══ ADMIN ══
@@ -1835,9 +1854,43 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
     return;
   }
 
-  var PER_PAGE   = 8;
-  var totalPages = Math.ceil(sorted.length / PER_PAGE);
-  var catLabel   = catFilter ? escHtml(catFilter) : 'ทุกหมวดงาน';
+  // ── คำนวณจำนวน row ต่อหน้าจากความสูงจริง ──
+  // A4 height = 297mm, margin top+bottom = 18mm, header ≈ 42mm, footer ≈ 8mm
+  // พื้นที่ตาราง ≈ 229mm = 865px (96dpi)
+  // header row ≈ 30px
+  var PAGE_HEIGHT_PX = 860;  // พื้นที่ตารางต่อหน้า (px)
+  var BASE_ROW_PX    = 36;   // แถวไม่มีรูป
+  var PHOTO_PX       = 85;   // ความสูงรูปต่อรูป
+
+  // คำนวณความสูงโดยประมาณของแต่ละ row
+  function estimateRowHeight(l) {
+    var h = BASE_ROW_PX;
+    // ข้อความยาว: ประมาณ 1 บรรทัดต่อ 50 ตัวอักษร
+    var lines = Math.ceil((l.detail || '').length / 50);
+    h += Math.max(0, lines - 1) * 18;
+    // รูปภาพ
+    if (l.imageUrl) {
+      var cnt = l.imageUrl.split(',').filter(function(u){ return u.trim(); }).length;
+      if (cnt > 0) h += PHOTO_PX;
+    }
+    return h;
+  }
+
+  // แบ่งหน้าตามความสูงสะสม
+  var pages = [], currentPage = [], currentH = 30; // 30 = header row height
+  sorted.forEach(function(l) {
+    var rh = estimateRowHeight(l);
+    if (currentH + rh > PAGE_HEIGHT_PX && currentPage.length > 0) {
+      pages.push(currentPage);
+      currentPage = [];
+      currentH = 30;
+    }
+    currentPage.push(l);
+    currentH += rh;
+  });
+  if (currentPage.length > 0) pages.push(currentPage);
+
+  var totalPages = pages.length;
 
   function pageHeader() {
     return '<div style="text-align:center;margin-bottom:6pt">'
@@ -1850,19 +1903,12 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
       + '</div>'
       + '<table class="rpt-table iso-table" style="width:100%;table-layout:fixed;border-collapse:collapse">'
       + '<thead><tr>'
-      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt">วันที่</th>'
-      + '<th style="border:1px solid #333;padding:5pt">รายละเอียดความคืบหน้า</th>'
-      + '<th style="width:62pt;text-align:center;border:1px solid #333;padding:5pt">ผู้รับผิดชอบ</th>'
-      + '<th style="width:62pt;text-align:center;border:1px solid #333;padding:5pt">ผู้ตรวจสอบ</th>'
-      + '<th style="width:50pt;text-align:center;border:1px solid #333;padding:5pt">หมายเหตุ</th>'
+      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">วันที่</th>'
+      + '<th style="border:1px solid #333;padding:5pt 4pt">รายละเอียดความคืบหน้า</th>'
+      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">ผู้รับผิดชอบ</th>'
+      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">ผู้ตรวจสอบ</th>'
+      + '<th style="width:48pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">หมายเหตุ</th>'
       + '</tr></thead><tbody>';
-  }
-
-  function pageFooter(pageNum, total) {
-    return '</tbody></table>'
-      + '<div style="text-align:right;font-size:9pt;color:#555;margin-top:3pt">'
-      + 'ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + pageNum + '/' + total
-      + '</div>';
   }
 
   function makeRow(l) {
@@ -1877,28 +1923,21 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
         urls.forEach(function(u) {
           u = u.trim();
           detail += '<img src="' + escHtml(u) + '" onclick="openImg(this.src)" '
-            + 'style="width:70pt;height:70pt;object-fit:cover;border:0.5pt solid #ccc">';
+            + 'style="width:68pt;height:68pt;object-fit:cover;border:0.5pt solid #ccc">';
         });
         detail += '</div>';
       }
     }
     return '<tr style="break-inside:avoid;page-break-inside:avoid">'
-      + '<td style="border:1px solid #333;padding:5pt;text-align:center;vertical-align:top;white-space:nowrap;font-size:10pt">' + escHtml(l.date) + '</td>'
-      + '<td style="border:1px solid #333;padding:5pt;vertical-align:top">' + detail + '</td>'
-      + '<td style="border:1px solid #333;padding:5pt;text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.user) + '</td>'
-      + '<td style="border:1px solid #333;padding:5pt;text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.verifiedBy||'') + '</td>'
-      + '<td style="border:1px solid #333;padding:5pt"></td>'
+      + '<td style="border:1px solid #333;padding:5pt 4pt;text-align:center;vertical-align:top;white-space:nowrap;font-size:10pt">' + escHtml(l.date) + '</td>'
+      + '<td style="border:1px solid #333;padding:5pt 4pt;vertical-align:top">' + detail + '</td>'
+      + '<td style="border:1px solid #333;padding:5pt 4pt;text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.user) + '</td>'
+      + '<td style="border:1px solid #333;padding:5pt 4pt;text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.verifiedBy||'') + '</td>'
+      + '<td style="border:1px solid #333;padding:5pt 4pt"></td>'
       + '</tr>';
   }
 
-  function fillerRow() {
-    return '<tr style="height:28pt">'
-      + '<td style="border:1px solid #333"></td><td style="border:1px solid #333"></td>'
-      + '<td style="border:1px solid #333"></td><td style="border:1px solid #333"></td>'
-      + '<td style="border:1px solid #333"></td></tr>';
-  }
-
-  // Build output - each page is a separate div with forced break
+  // Build DOM
   output.innerHTML = '';
   var btn = document.createElement('button');
   btn.className = 'rpt-print-btn no-print';
@@ -1906,17 +1945,17 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
   btn.onclick = printReport;
   output.appendChild(btn);
 
-  for (var p = 0; p < totalPages; p++) {
-    var pageEntries = sorted.slice(p * PER_PAGE, (p+1) * PER_PAGE);
+  pages.forEach(function(entries, pIdx) {
     var div = document.createElement('div');
     div.className = 'rpt-page iso-page';
-    var rows = pageHeader();
-    pageEntries.forEach(function(l){ rows += makeRow(l); });
-    for (var f = pageEntries.length; f < PER_PAGE; f++) { rows += fillerRow(); }
-    rows += pageFooter(p+1, totalPages);
-    div.innerHTML = rows;
+    var html = pageHeader();
+    entries.forEach(function(l){ html += makeRow(l); });
+    html += '</tbody></table>'
+      + '<div style="text-align:right;font-size:9pt;color:#555;margin-top:3pt">'
+      + 'ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + (pIdx+1) + '/' + totalPages + '</div>';
+    div.innerHTML = html;
     output.appendChild(div);
-  }
+  });
 }
 
 
