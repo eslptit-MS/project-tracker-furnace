@@ -314,6 +314,12 @@
     }
     .rpt-page:last-child { page-break-after: avoid; }
     .iso-page { padding: 8mm 10mm; }
+    .iso-form-header { margin-bottom: 4pt; }
+    .iso-table { border-collapse: collapse; width: 100%; }
+    .iso-table td, .iso-table th { border: 1px solid #333 !important; }
+    .iso-page { width: 100%; min-height: 277mm; display: flex; flex-direction: column; }
+    .iso-page .rpt-table { flex: 1; }
+    tr { page-break-inside: avoid !important; }
 
     .rpt-table { width: 100%; border-collapse: collapse; }
     .rpt-table th, .rpt-table td { border: 1px solid #444; padding: 4pt 6pt; vertical-align: top; }
@@ -1809,7 +1815,6 @@ function printReport() { window.print(); }
 function renderDailyReport(proj, from, to, logs, catFilter) {
   var output = document.getElementById('rpt-output');
 
-  // เรียงจากเก่าไปใหม่
   var sorted = logs.slice().sort(function(a,b){
     return toISO(a.date) > toISO(b.date) ? 1 : -1;
   });
@@ -1819,87 +1824,91 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
     return;
   }
 
-  var ENTRIES_PER_PAGE = 8;
-  var pages = [];
-  for (var i = 0; i < sorted.length; i += ENTRIES_PER_PAGE) {
-    pages.push(sorted.slice(i, i + ENTRIES_PER_PAGE));
-  }
+  var catLabel   = catFilter ? escHtml(catFilter) : 'ทุกหมวดงาน';
+  var totalPages = Math.ceil(sorted.length / 8) || 1;
 
-  var catLabel = catFilter ? escHtml(catFilter) : 'ทุกหมวดงาน';
-  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
-
-  pages.forEach(function(entries, pageIdx) {
-    html += '<div class="rpt-page iso-page">';
-    // Header
-    html += '<div style="text-align:center;margin-bottom:8pt">'
-      + '<div style="font-size:15pt;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
-      + '<div style="font-size:13pt;font-weight:700;margin-top:4pt">ใบแสดงความคืบหน้าในการออกแบบ / การดำเนินการ</div>'
+  // ── สร้าง header ฟอร์ม (ซ้ำทุกหน้า) ──
+  function makeHeader(pageNum) {
+    return '<div class="iso-form-header">'
+      + '<div style="text-align:center;margin-bottom:6pt">'
+      + '<div style="font-size:14pt;font-weight:700">' + escHtml(projectSettings.company) + '</div>'
+      + '<div style="font-size:12pt;font-weight:700;margin-top:3pt">ใบแสดงความคืบหน้าในการออกแบบ / การดำเนินการ</div>'
       + '</div>'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:8pt;font-size:11pt">'
+      + '<div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:4pt">'
       + '<div><strong>Project :</strong> &nbsp;' + escHtml(proj) + '</div>'
       + '<div><strong>รหัสโครงการ :</strong> &nbsp;' + escHtml(projectSettings.code) + '</div>'
       + '</div>'
-      + '<div style="font-size:10pt;color:#555;margin-bottom:6pt">'
-      + 'ช่วงวันที่: ' + fmtDateTH(from) + ' — ' + fmtDateTH(to)
-      + (catFilter ? ' &nbsp;|&nbsp; หมวดงาน: ' + catLabel : '')
-      + '</div>';
-
-    // Table
-    html += '<table class="rpt-table iso-table">'
+      + '</div>'
+      + '<table class="rpt-table iso-table" style="width:100%;table-layout:fixed">'
       + '<thead><tr>'
       + '<th style="width:62pt;text-align:center">วันที่</th>'
       + '<th>รายละเอียดความคืบหน้า</th>'
-      + '<th style="width:65pt;text-align:center">ผู้รับผิดชอบ</th>'
-      + '<th style="width:65pt;text-align:center">ผู้ตรวจสอบ</th>'
-      + '<th style="width:52pt;text-align:center">หมายเหตุ</th>'
+      + '<th style="width:64pt;text-align:center">ผู้รับผิดชอบ</th>'
+      + '<th style="width:64pt;text-align:center">ผู้ตรวจสอบ</th>'
+      + '<th style="width:50pt;text-align:center">หมายเหตุ</th>'
       + '</tr></thead><tbody>';
+  }
 
-    entries.forEach(function(l) {
-      var detailHtml = '';
-      // category + % badge
-      detailHtml += '<div style="font-size:9pt;color:#555;margin-bottom:3pt;font-weight:600">'
-        + escHtml(l.category) + ' &nbsp;<span style="background:#e8f5e9;color:#1D9E75;padding:1pt 5pt;border-radius:3pt">'
-        + l.percent + '%</span></div>';
-      // detail text
-      detailHtml += '<div style="white-space:pre-wrap;word-break:break-word;font-size:10.5pt">'
-        + escHtml(l.detail) + '</div>';
-      // photos below text
-      if (l.imageUrl) {
-        var urls = l.imageUrl.split(',').filter(function(u){ return u.trim(); });
-        if (urls.length) {
-          detailHtml += '<div style="display:flex;gap:4pt;flex-wrap:wrap;margin-top:6pt">';
-          urls.forEach(function(u) {
-            u = u.trim();
-            detailHtml += '<img src="' + escHtml(u) + '" '
-              + 'style="width:75pt;height:75pt;object-fit:cover;border:0.5pt solid #ccc;border-radius:3pt;cursor:pointer" '
-              + 'onclick="openImg(this.src)">';
-          });
-          detailHtml += '</div>';
-        }
+  // ── สร้าง footer ฟอร์ม ──
+  function makeFooter(pageNum) {
+    return '</tbody></table>'
+      + '<div style="text-align:right;font-size:9pt;color:#555;margin-top:3pt">'
+      + 'ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + pageNum + '/' + totalPages
+      + '</div>';
+  }
+
+  // ── สร้างแถวข้อมูล ──
+  function makeRow(l) {
+    var detailHtml = '<div style="font-size:9pt;color:#444;font-weight:600;margin-bottom:2pt">'
+      + escHtml(l.category)
+      + ' <span style="background:#e8f5e9;color:#1D9E75;padding:0 4pt;border-radius:2pt">'
+      + l.percent + '%</span></div>'
+      + '<div style="font-size:10pt;word-break:break-word;white-space:pre-wrap">' + escHtml(l.detail) + '</div>';
+    if (l.imageUrl) {
+      var urls = l.imageUrl.split(',').filter(function(u){ return u.trim(); });
+      if (urls.length) {
+        detailHtml += '<div style="display:flex;gap:4pt;flex-wrap:wrap;margin-top:5pt">';
+        urls.forEach(function(u) {
+          u = u.trim();
+          detailHtml += '<img src="' + escHtml(u) + '" onclick="openImg(this.src)" '
+            + 'style="width:70pt;height:70pt;object-fit:cover;border:0.5pt solid #bbb;border-radius:2pt;cursor:pointer">';
+        });
+        detailHtml += '</div>';
       }
-
-      html += '<tr>'
-        + '<td style="text-align:center;vertical-align:top;white-space:nowrap;font-size:10pt">' + escHtml(l.date) + '</td>'
-        + '<td>' + detailHtml + '</td>'
-        + '<td style="text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.user) + '</td>'
-        + '<td style="text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.verifiedBy || '') + '</td>'
-        + '<td></td>'
-        + '</tr>';
-    });
-
-    // Filler rows
-    var fillers = Math.max(0, 8 - entries.length);
-    for (var f = 0; f < fillers; f++) {
-      html += '<tr style="height:26pt"><td></td><td></td><td></td><td></td><td></td></tr>';
     }
-    html += '</tbody></table>';
-    html += '<div style="text-align:right;font-size:9pt;color:#666;margin-top:4pt">'
-      + 'ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + (pageIdx+1) + '/' + pages.length + '</div>';
+    return '<tr style="page-break-inside:avoid">'
+      + '<td style="text-align:center;vertical-align:top;white-space:nowrap;font-size:10pt;width:62pt">' + escHtml(l.date) + '</td>'
+      + '<td style="vertical-align:top">' + detailHtml + '</td>'
+      + '<td style="text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.user) + '</td>'
+      + '<td style="text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.verifiedBy || '') + '</td>'
+      + '<td></td>'
+      + '</tr>';
+  }
+
+  // ── สร้างแถวว่าง ──
+  function makeFillerRow() {
+    return '<tr style="height:28pt"><td></td><td></td><td></td><td></td><td></td></tr>';
+  }
+
+  // ── แบ่งหน้า 8 รายการต่อหน้า ──
+  var html = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
+
+  var pageNum = 1;
+  for (var i = 0; i < sorted.length; i += 8) {
+    var pageEntries = sorted.slice(i, i + 8);
+    html += '<div class="rpt-page iso-page">';
+    html += makeHeader(pageNum);
+    pageEntries.forEach(function(l) { html += makeRow(l); });
+    // เติมแถวว่างให้ครบ 8 แถว
+    for (var f = pageEntries.length; f < 8; f++) { html += makeFillerRow(); }
+    html += makeFooter(pageNum);
     html += '</div>';
-  });
+    pageNum++;
+  }
 
   output.innerHTML = html;
 }
+
 
 // ── Report 2: Weekly / Monthly Summary ──────────────────────
 function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
