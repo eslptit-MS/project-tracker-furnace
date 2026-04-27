@@ -2017,23 +2017,15 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
   }
 
   // สร้าง DOM
-  output.innerHTML = '';
-  var btn = document.createElement('button');
-  btn.className = 'rpt-print-btn no-print';
-  btn.textContent = '🖨️ พิมพ์ / Save PDF';
-  btn.onclick = printReport;
-  output.appendChild(btn);
-
+  var fullHtml = '<button class="rpt-print-btn no-print" onclick="printReport()">🖨️ พิมพ์ / Save PDF</button>';
   pages.forEach(function(entries, pi) {
-    var div = document.createElement('div');
-    div.className = 'iso-page';
-    // แต่ละ iso-page มี header + table + footer ครบในตัวเอง
-    var html = mkHeader() + mkTableHeader();
-    entries.forEach(function(l){ html += mkRow(l); });
-    html += '</tbody></table>' + mkFooter(pi + 1);
-    div.innerHTML = html;
-    output.appendChild(div);
+    fullHtml += '<div class="iso-page">';
+    fullHtml += mkHeader() + mkTableHeader();
+    entries.forEach(function(l){ fullHtml += mkRow(l); });
+    fullHtml += '</tbody></table>' + mkFooter(pi + 1);
+    fullHtml += '</div>';
   });
+  output.innerHTML = fullHtml;
 }
 
 
@@ -2101,24 +2093,27 @@ function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
 
   // Activity log
   if (logs.length) {
-    html += '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;margin:14px 0 8px">บันทึกกิจกรรมในช่วงเวลานี้</div>';
-    html += '<table class="rpt-table"><thead><tr>'
-      + '<th style="width:75px">วันที่</th>'
-      + (catFilter ? '' : '<th style="width:130px">หมวดงาน</th>')
-      + '<th style="width:50px;text-align:center">%</th>'
+    html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;margin:10px 0 6px">บันทึกกิจกรรมในช่วงเวลานี้</div>';
+    html += '<table class="rpt-table" style="font-size:11px"><thead><tr>'
+      + '<th style="width:70px">วันที่</th>'
+      + (catFilter ? '' : '<th style="width:110px">หมวดงาน</th>')
+      + '<th style="width:40px;text-align:center">%</th>'
       + '<th>รายละเอียด</th>'
-      + '<th style="width:80px">ผู้บันทึก</th>'
-      + '<th style="width:80px">ผู้ตรวจสอบ</th>'
+      + '<th style="width:65px">ผู้บันทึก</th>'
+      + '<th style="width:65px">ผู้ตรวจสอบ</th>'
       + '</tr></thead><tbody>';
     var sortedLogs = logs.slice().sort(function(a,b){ return toISO(a.date)>toISO(b.date)?1:-1; });
     sortedLogs.forEach(function(l) {
+      // ตัดรายละเอียดไม่ให้ยาวเกิน 80 ตัวอักษร
+      var det = l.detail || '';
+      if (det.length > 80) det = det.substring(0, 77) + '...';
       html += '<tr>'
-        + '<td style="font-size:11px">'+escHtml(l.date)+'</td>'
-        + (catFilter ? '' : '<td style="font-size:11px">'+escHtml(l.category)+'</td>')
+        + '<td style="white-space:nowrap">'+escHtml(l.date)+'</td>'
+        + (catFilter ? '' : '<td>'+escHtml(l.category)+'</td>')
         + '<td style="text-align:center;font-weight:700">'+l.percent+'%</td>'
-        + '<td style="font-size:12px">'+escHtml(l.detail)+'</td>'
-        + '<td style="font-size:11px">'+escHtml(l.user)+'</td>'
-        + '<td style="font-size:11px">'+escHtml(l.verifiedBy||'')+'</td>'
+        + '<td>'+escHtml(det)+'</td>'
+        + '<td>'+escHtml(l.user)+'</td>'
+        + '<td>'+escHtml(l.verifiedBy||'')+'</td>'
         + '</tr>';
     });
     html += '</tbody></table>';
