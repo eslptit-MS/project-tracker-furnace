@@ -381,13 +381,19 @@
     </div>
     <div class="form-group">
       <label class="form-label">รูปภาพหน้างาน</label>
-      <input type="file" id="in-photo" accept="image/*" capture="environment" multiple onchange="previewPhotos(this,'in-photos')">
-      <div class="upload-area" onclick="document.getElementById('in-photo').click()">
-        <div class="upload-icon">📷</div>
-        <div class="upload-label">แตะเพื่อถ่าย / เลือกรูป</div>
-        <div class="upload-hint">JPG, PNG — ไม่เกิน 10MB ต่อรูป</div>
+      <input type="file" id="in-photo-camera" accept="image/*" capture="environment" onchange="addPhoto(this,'in-photos')" style="display:none">
+      <input type="file" id="in-photo-gallery" accept="image/*" multiple onchange="addPhoto(this,'in-photos')" style="display:none">
+      <div style="display:flex;gap:8px">
+        <div class="upload-area" style="flex:1" onclick="document.getElementById('in-photo-camera').click()">
+          <div class="upload-icon">📷</div>
+          <div class="upload-label">ถ่ายรูป</div>
+        </div>
+        <div class="upload-area" style="flex:1" onclick="document.getElementById('in-photo-gallery').click()">
+          <div class="upload-icon">🖼️</div>
+          <div class="upload-label">เลือกจากคลัง</div>
+        </div>
       </div>
-      <div class="photo-previews" id="in-photos"></div>
+      <div class="photo-previews" id="in-photos" style="margin-top:8px"></div>
     </div>
     <button class="btn-primary" id="in-save-btn" onclick="saveProgress()">บันทึก</button>
   </div>
@@ -517,12 +523,19 @@
     </div>
     <div class="form-group">
       <label class="form-label">แนบรูปภาพ (ถ้ามี)</label>
-      <input type="file" id="ni-photo" accept="image/*" capture="environment" onchange="previewPhotos(this,'ni-photos')">
-      <div class="upload-area" onclick="document.getElementById('ni-photo').click()">
-        <div class="upload-icon">📷</div>
-        <div class="upload-label">แตะเพื่อแนบรูป</div>
+      <input type="file" id="ni-photo-camera" accept="image/*" capture="environment" onchange="addPhoto(this,'ni-photos')" style="display:none">
+      <input type="file" id="ni-photo-gallery" accept="image/*" multiple onchange="addPhoto(this,'ni-photos')" style="display:none">
+      <div style="display:flex;gap:8px">
+        <div class="upload-area" style="flex:1" onclick="document.getElementById('ni-photo-camera').click()">
+          <div class="upload-icon">📷</div>
+          <div class="upload-label">ถ่ายรูป</div>
+        </div>
+        <div class="upload-area" style="flex:1" onclick="document.getElementById('ni-photo-gallery').click()">
+          <div class="upload-icon">🖼️</div>
+          <div class="upload-label">เลือกจากคลัง</div>
+        </div>
       </div>
-      <div class="photo-previews" id="ni-photos"></div>
+      <div class="photo-previews" id="ni-photos" style="margin-top:8px"></div>
     </div>
     <button class="btn-primary btn-blue" onclick="submitIssue()">ส่งเรื่อง</button>
   </div>
@@ -760,10 +773,19 @@ function toggleVoice(btnId, textareaId, statusId) {
   sr.interimResults = true;
   srInstances[btnId] = sr;
 
+  var finalText = (ta.value || '');  // เก็บข้อความเดิมไว้ต่อท้าย
+
   sr.onresult = function(e) {
-    let txt = '';
-    for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
-    ta.value = txt;
+    var interim = '';
+    // วนเฉพาะ results ใหม่จาก resultIndex เท่านั้น ไม่ย้อนกลับ
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalText += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    ta.value = finalText + interim;
   };
   sr.onerror = function(e) {
     showToast('Voice error: ' + e.error);
@@ -785,31 +807,33 @@ function toggleVoice(btnId, textareaId, statusId) {
 }
 
 // ══ PHOTO PREVIEW ══
-// เก็บ selected files ไว้แยกต่างหาก เพื่อให้ลบได้
 var selectedFiles = {};
 
-function previewPhotos(input, previewId) {
-  const wrap = document.getElementById(previewId);
-  wrap.innerHTML = '';
-  selectedFiles[previewId] = Array.from(input.files);
+// addPhoto — สะสมรูปแทนการทับ (รองรับทั้งถ่ายใหม่และเลือกจากคลัง)
+function addPhoto(input, previewId) {
+  if (!selectedFiles[previewId]) selectedFiles[previewId] = [];
+  var newFiles = Array.from(input.files);
+  newFiles.forEach(function(f) { selectedFiles[previewId].push(f); });
+  input.value = '';  // reset input เพื่อให้กดซ้ำได้
   renderPreviews(previewId);
 }
 
 function renderPreviews(previewId) {
-  const wrap = document.getElementById(previewId);
+  var wrap = document.getElementById(previewId);
   wrap.innerHTML = '';
-  const files = selectedFiles[previewId] || [];
+  var files = selectedFiles[previewId] || [];
+  if (files.length === 0) return;
   files.forEach(function(file, idx) {
-    const reader = new FileReader();
+    var reader = new FileReader();
     reader.onload = function(e) {
-      const div = document.createElement('div');
-      div.style.cssText = 'position:relative;display:inline-block';
-      const img = document.createElement('img');
+      var div = document.createElement('div');
+      div.style.cssText = 'position:relative;display:inline-block;margin:4px';
+      var img = document.createElement('img');
       img.src = e.target.result;
       img.className = 'photo-thumb';
-      const del = document.createElement('button');
+      var del = document.createElement('button');
       del.textContent = '✕';
-      del.style.cssText = 'position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#E24B4A;color:#fff;border:none;cursor:pointer;font-size:11px;font-weight:700;line-height:1;padding:0;display:flex;align-items:center;justify-content:center';
+      del.style.cssText = 'position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:#E24B4A;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;z-index:1';
       del.onclick = function() {
         selectedFiles[previewId].splice(idx, 1);
         renderPreviews(previewId);
@@ -820,7 +844,6 @@ function renderPreviews(previewId) {
     };
     reader.readAsDataURL(file);
   });
-  if (files.length === 0) wrap.innerHTML = '';
 }
 
 // ══ SAVE PROGRESS ══
@@ -829,7 +852,7 @@ function saveProgress() {
   btn.textContent = 'กำลังบันทึก...';
   btn.disabled = true;
 
-  const files    = selectedFiles['in-photos'] || Array.from(document.getElementById('in-photo').files);
+  const files    = selectedFiles['in-photos'] || [];
   const project  = document.getElementById('in-project').value;
   const category = document.getElementById('in-category').value;
   const percent  = parseInt(document.getElementById('in-pct').value);
@@ -856,7 +879,7 @@ function saveProgress() {
       if (r.success) {
         showToast('บันทึกสำเร็จ' + (imageUrls.length > 0 ? ' (' + imageUrls.length + ' รูป)' : ''));
         document.getElementById('in-detail').value = '';
-        document.getElementById('in-photo').value = '';
+        selectedFiles['in-photos'] = [];
         document.getElementById('in-photos').innerHTML = '';
         document.getElementById('in-pct').value = 0;
         document.getElementById('in-pct-val').textContent = '0%';
@@ -1196,7 +1219,7 @@ function submitIssue() {
     });
   }
 
-  const file = document.getElementById('ni-photo').files[0];
+  const niFiles = selectedFiles['ni-photos'] || []; const file = niFiles[0] || null;
   if (file) {
     const reader = new FileReader();
     reader.onload = function(e) {
