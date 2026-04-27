@@ -286,66 +286,71 @@
 
   /* ══ PRINT STYLES ══ */
   @media print {
-    /* ซ่อนทุกอย่างยกเว้น rpt-output */
-    .app-header, .nav, #page-input, #page-dashboard, #page-tracking,
+    @page { size: A4; margin: 10mm 12mm; }
+
+    /* ซ่อนทุกอย่างยกเว้น report */
+    .app-header, .nav,
+    #page-input, #page-dashboard, #page-tracking,
     #page-issues, #page-new-issue, #page-admin, #page-gantt,
     #page-report > .card, #rpt-loading,
-    .rpt-print-btn, .no-print,
-    .img-modal, .toast { display: none !important; }
+    .rpt-print-btn, .no-print, .img-modal, .toast { display: none !important; }
 
-    /* แสดงเฉพาะ report page และ output */
     #page-report { display: block !important; padding: 0 !important; }
     #rpt-output  { display: block !important; }
     .app-wrap    { padding-bottom: 0 !important; }
+    body         { margin: 0; padding: 0; background: #fff; color: #000; }
 
-    body { margin: 0; padding: 0; background: #fff; color: #000; font-size: 11pt; }
-
-    @page { margin: 0; size: A4; }
-    .rpt-page {
+    /* แต่ละ iso-page = 1 หน้า A4 พอดี ห้ามตัด */
+    .iso-page {
       display: block !important;
-      page-break-after: always !important;
-      break-after: page !important;
-      padding: 10mm 12mm;
-      box-sizing: border-box;
-      background: #fff !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      padding: 0 !important;
+      margin: 0 !important;
       border: none !important;
       border-radius: 0 !important;
-      margin: 0 !important;
-      width: 100%;
+      background: #fff !important;
+      page-break-before: always !important;
+      break-before: page !important;
     }
-    .rpt-page:last-child {
-      page-break-after: avoid !important;
-      break-after: avoid !important;
+    .iso-page:first-of-type {
+      page-break-before: avoid !important;
+      break-before: avoid !important;
     }
-    .iso-page {
-      padding: 10mm 12mm 8mm 12mm;
-      page-break-after: always !important;
-      break-after: page !important;
-      page-break-inside: avoid;
-    }
-    .iso-page:last-child {
-      page-break-after: avoid !important;
-      break-after: avoid !important;
-    }
-    .iso-form-header { margin-bottom: 5pt; }
-    .iso-table { border-collapse: collapse; width: 100%; }
-    .iso-table td, .iso-table th { border: 1px solid #333 !important; }
-    .iso-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
 
-    .rpt-table { width: 100%; border-collapse: collapse; }
-    .rpt-table th, .rpt-table td { border: 1px solid #444; padding: 4pt 6pt; vertical-align: top; }
-    .rpt-table th {
+    /* Report อื่นๆ */
+    .rpt-page {
+      display: block !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      border-radius: 0 !important;
+      background: #fff !important;
+      page-break-before: always !important;
+      break-before: page !important;
+    }
+    .rpt-page:first-of-type {
+      page-break-before: avoid !important;
+      break-before: avoid !important;
+    }
+
+    /* ตาราง */
+    .rpt-table, .iso-table { width: 100%; border-collapse: collapse; }
+    .rpt-table th, .rpt-table td,
+    .iso-table th, .iso-table td { border: 1px solid #333 !important; padding: 4pt 5pt; }
+    .rpt-table th, .iso-table th {
       background: #f0f0f0 !important;
-      font-weight: 700;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .rpt-stat-grid { display: grid !important; grid-template-columns: repeat(4,1fr); gap: 8px; }
-    .rpt-stat { border: 1px solid #ddd !important; padding: 8px; text-align: center; }
-    .rpt-stat-val { font-size: 20pt; font-weight: 700; }
-    img { max-width: 75pt; max-height: 75pt; object-fit: cover; }
+    /* ห้ามตัดกลางแถว */
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    img { max-width: 70pt !important; max-height: 70pt !important; object-fit: cover; }
+    .rpt-stat-grid { display: grid !important; grid-template-columns: repeat(4,1fr); gap: 6px; }
+    .rpt-stat { border: 1px solid #ddd !important; padding: 6px; text-align: center; }
   }
-  /* Screen preview of report */
+
+    /* Screen preview of report */
   .rpt-page { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
   .rpt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .rpt-table th { background: #f5f5f4; font-weight: 600; padding: 8px 10px; border: 1px solid #ddd; text-align: left; font-size: 12px; }
@@ -1854,90 +1859,92 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
     return;
   }
 
-  // ── คำนวณจำนวน row ต่อหน้าจากความสูงจริง ──
-  // A4 height = 297mm, margin top+bottom = 18mm, header ≈ 42mm, footer ≈ 8mm
-  // พื้นที่ตาราง ≈ 229mm = 865px (96dpi)
-  // header row ≈ 30px
-  var PAGE_HEIGHT_PX = 860;  // พื้นที่ตารางต่อหน้า (px)
-  var BASE_ROW_PX    = 36;   // แถวไม่มีรูป
-  var PHOTO_PX       = 85;   // ความสูงรูปต่อรูป
+  // คำนวณความสูงโดยประมาณ (px ที่ 96dpi, A4 content area ≈ 230mm = 870px)
+  // หัก header ≈ 55px, footer ≈ 20px → เหลือตาราง ≈ 795px
+  var TABLE_AREA  = 795;
+  var THEAD_H     = 30;
+  var BASE_ROW    = 38;   // แถวไม่มีรูป
+  var TEXT_LINE   = 16;   // ต่อบรรทัดเพิ่ม
+  var PHOTO_H     = 82;   // แถวมีรูป
 
-  // คำนวณความสูงโดยประมาณของแต่ละ row
-  function estimateRowHeight(l) {
-    var h = BASE_ROW_PX;
-    // ข้อความยาว: ประมาณ 1 บรรทัดต่อ 50 ตัวอักษร
-    var lines = Math.ceil((l.detail || '').length / 50);
-    h += Math.max(0, lines - 1) * 18;
-    // รูปภาพ
+  function rowH(l) {
+    var h = BASE_ROW;
+    var lines = Math.ceil((l.detail||'').length / 48);
+    if (lines > 1) h += (lines - 1) * TEXT_LINE;
     if (l.imageUrl) {
       var cnt = l.imageUrl.split(',').filter(function(u){ return u.trim(); }).length;
-      if (cnt > 0) h += PHOTO_PX;
+      if (cnt > 0) h += PHOTO_H;
     }
     return h;
   }
 
-  // แบ่งหน้าตามความสูงสะสม
-  var pages = [], currentPage = [], currentH = 30; // 30 = header row height
+  // แบ่ง pages
+  var pages = [], cur = [], curH = THEAD_H;
   sorted.forEach(function(l) {
-    var rh = estimateRowHeight(l);
-    if (currentH + rh > PAGE_HEIGHT_PX && currentPage.length > 0) {
-      pages.push(currentPage);
-      currentPage = [];
-      currentH = 30;
+    var rh = rowH(l);
+    if (curH + rh > TABLE_AREA && cur.length > 0) {
+      pages.push(cur); cur = []; curH = THEAD_H;
     }
-    currentPage.push(l);
-    currentH += rh;
+    cur.push(l); curH += rh;
   });
-  if (currentPage.length > 0) pages.push(currentPage);
+  if (cur.length) pages.push(cur);
 
-  var totalPages = pages.length;
+  var total = pages.length;
 
-  function pageHeader() {
+  function mkHeader() {
     return '<div style="text-align:center;margin-bottom:6pt">'
       + '<div style="font-size:14pt;font-weight:700">' + escHtml(projectSettings.company) + '</div>'
       + '<div style="font-size:12pt;font-weight:700;margin-top:3pt">ใบแสดงความคืบหน้าในการออกแบบ / การดำเนินการ</div>'
       + '</div>'
-      + '<div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:5pt">'
+      + '<div style="display:flex;justify-content:space-between;font-size:10pt;margin-bottom:4pt">'
       + '<div><strong>Project :</strong> ' + escHtml(proj) + '</div>'
       + '<div><strong>รหัสโครงการ :</strong> ' + escHtml(projectSettings.code) + '</div>'
-      + '</div>'
-      + '<table class="rpt-table iso-table" style="width:100%;table-layout:fixed;border-collapse:collapse">'
+      + '</div>';
+  }
+
+  function mkTableHeader() {
+    return '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
+      + '<colgroup><col style="width:58pt"><col><col style="width:58pt"><col style="width:58pt"><col style="width:46pt"></colgroup>'
       + '<thead><tr>'
-      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">วันที่</th>'
-      + '<th style="border:1px solid #333;padding:5pt 4pt">รายละเอียดความคืบหน้า</th>'
-      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">ผู้รับผิดชอบ</th>'
-      + '<th style="width:60pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">ผู้ตรวจสอบ</th>'
-      + '<th style="width:48pt;text-align:center;border:1px solid #333;padding:5pt 4pt;font-size:10pt">หมายเหตุ</th>'
+      + '<th style="border:1px solid #333;padding:5pt 4pt;text-align:center;font-size:10pt">วันที่</th>'
+      + '<th style="border:1px solid #333;padding:5pt 4pt;font-size:10pt">รายละเอียดความคืบหน้า</th>'
+      + '<th style="border:1px solid #333;padding:5pt 4pt;text-align:center;font-size:10pt">ผู้รับผิดชอบ</th>'
+      + '<th style="border:1px solid #333;padding:5pt 4pt;text-align:center;font-size:10pt">ผู้ตรวจสอบ</th>'
+      + '<th style="border:1px solid #333;padding:5pt 4pt;text-align:center;font-size:10pt">หมายเหตุ</th>'
       + '</tr></thead><tbody>';
   }
 
-  function makeRow(l) {
-    var detail = '<div style="font-size:9pt;color:#444;font-weight:700;margin-bottom:2pt">'
-      + escHtml(l.category)
-      + ' <span style="color:#1D9E75">' + l.percent + '%</span></div>'
+  function mkRow(l) {
+    var det = '<div style="font-size:9pt;font-weight:700;color:#333;margin-bottom:2pt">'
+      + escHtml(l.category) + ' <span style="color:#1D9E75">' + l.percent + '%</span></div>'
       + '<div style="font-size:10pt;word-break:break-word;white-space:pre-wrap">' + escHtml(l.detail) + '</div>';
     if (l.imageUrl) {
       var urls = l.imageUrl.split(',').filter(function(u){ return u.trim(); });
       if (urls.length) {
-        detail += '<div style="display:flex;gap:3pt;flex-wrap:wrap;margin-top:4pt">';
-        urls.forEach(function(u) {
+        det += '<div style="display:flex;gap:3pt;flex-wrap:wrap;margin-top:4pt">';
+        urls.forEach(function(u){
           u = u.trim();
-          detail += '<img src="' + escHtml(u) + '" onclick="openImg(this.src)" '
-            + 'style="width:68pt;height:68pt;object-fit:cover;border:0.5pt solid #ccc">';
+          det += '<img src="'+escHtml(u)+'" onclick="openImg(this.src)" style="width:68pt;height:68pt;object-fit:cover;border:0.5pt solid #bbb">';
         });
-        detail += '</div>';
+        det += '</div>';
       }
     }
-    return '<tr style="break-inside:avoid;page-break-inside:avoid">'
+    return '<tr>'
       + '<td style="border:1px solid #333;padding:5pt 4pt;text-align:center;vertical-align:top;white-space:nowrap;font-size:10pt">' + escHtml(l.date) + '</td>'
-      + '<td style="border:1px solid #333;padding:5pt 4pt;vertical-align:top">' + detail + '</td>'
+      + '<td style="border:1px solid #333;padding:5pt 4pt;vertical-align:top">' + det + '</td>'
       + '<td style="border:1px solid #333;padding:5pt 4pt;text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.user) + '</td>'
       + '<td style="border:1px solid #333;padding:5pt 4pt;text-align:center;vertical-align:top;font-size:10pt">' + escHtml(l.verifiedBy||'') + '</td>'
       + '<td style="border:1px solid #333;padding:5pt 4pt"></td>'
       + '</tr>';
   }
 
-  // Build DOM
+  function mkFooter(pNum) {
+    return '<div style="text-align:right;font-size:9pt;color:#555;margin-top:3pt">'
+      + 'ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + pNum + '/' + total
+      + '</div>';
+  }
+
+  // สร้าง DOM
   output.innerHTML = '';
   var btn = document.createElement('button');
   btn.className = 'rpt-print-btn no-print';
@@ -1945,14 +1952,13 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
   btn.onclick = printReport;
   output.appendChild(btn);
 
-  pages.forEach(function(entries, pIdx) {
+  pages.forEach(function(entries, pi) {
     var div = document.createElement('div');
-    div.className = 'rpt-page iso-page';
-    var html = pageHeader();
-    entries.forEach(function(l){ html += makeRow(l); });
-    html += '</tbody></table>'
-      + '<div style="text-align:right;font-size:9pt;color:#555;margin-top:3pt">'
-      + 'ESL-F-PE-05/00 &nbsp;|&nbsp; หน้า ' + (pIdx+1) + '/' + totalPages + '</div>';
+    div.className = 'iso-page';
+    // แต่ละ iso-page มี header + table + footer ครบในตัวเอง
+    var html = mkHeader() + mkTableHeader();
+    entries.forEach(function(l){ html += mkRow(l); });
+    html += '</tbody></table>' + mkFooter(pi + 1);
     div.innerHTML = html;
     output.appendChild(div);
   });
