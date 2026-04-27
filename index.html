@@ -1189,49 +1189,72 @@ function updateTagPreview() {
 }
 
 function submitIssue() {
-  const title = document.getElementById('ni-title').value.trim();
-  const detail = document.getElementById('ni-detail').value.trim();
+  var title  = document.getElementById('ni-title').value.trim();
+  var detail = document.getElementById('ni-detail').value.trim();
   if (!title) { showToast('กรุณาใส่หัวข้อ'); return; }
 
-  const tagged = [];
+  var tagged = [];
   document.querySelectorAll('#ni-users-list input[type=checkbox]:checked').forEach(function(cb){ tagged.push(cb.value); });
 
-  function doSubmit(imageUrl) {
+  // แสดง loading
+  var btn = document.querySelector('#page-new-issue .btn-primary');
+  btn.disabled = true;
+  btn.textContent = 'กำลังส่งเรื่อง...';
+
+  function doSubmit(imageUrls) {
     call('createIssue', {
       project:     document.getElementById('ni-project').value,
       category:    document.getElementById('ni-category').value,
       type:        document.getElementById('ni-type').value,
       title:       title,
       detail:      detail,
-      imageUrl:    imageUrl,
+      imageUrl:    imageUrls.join(','),
       reporter:    currentUser ? currentUser.name : 'Unknown',
       taggedUsers: tagged
     }, function(r) {
+      btn.disabled = false;
+      btn.textContent = 'ส่งเรื่อง';
       if (r.success) {
         showToast('ส่งเรื่องสำเร็จ — ผู้รับผิดชอบได้รับแจ้งแล้ว');
         document.getElementById('ni-title').value = '';
         document.getElementById('ni-detail').value = '';
         document.querySelectorAll('#ni-users-list input[type=checkbox]').forEach(function(cb){ cb.checked = false; });
         document.getElementById('ni-tags-preview').innerHTML = '';
+        selectedFiles['ni-photos'] = [];
+        document.getElementById('ni-photos').innerHTML = '';
         loadIssues();
         showPage('issues', document.querySelectorAll('.nav-btn')[3]);
-      } else showToast('Error: ' + r.error);
+      } else { showToast('Error: ' + r.error); }
     });
   }
 
-  const niFiles = selectedFiles['ni-photos'] || []; const file = niFiles[0] || null;
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const b64 = e.target.result.split(',')[1];
-      call('uploadImage', {
-        base64: b64, filename: file.name, mimeType: file.type,
-        project: document.getElementById('ni-project').value,
-        category: 'issues'
-      }, function(ur){ doSubmit(ur.success ? ur.url : ''); });
-    };
-    reader.readAsDataURL(file);
-  } else doSubmit('');
+  var niFiles = selectedFiles['ni-photos'] || [];
+  if (niFiles.length > 0) {
+    // อ่านทุกรูปก่อน แล้ว upload พร้อมกัน
+    btn.textContent = 'กำลังอัปโหลดรูป 0/' + niFiles.length + '...';
+    var imgArr = [], done = 0;
+    niFiles.forEach(function(file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        imgArr.push({ base64: e.target.result.split(',')[1], filename: file.name, mimeType: file.type });
+        done++;
+        btn.textContent = 'กำลังอัปโหลดรูป ' + done + '/' + niFiles.length + '...';
+        if (done === niFiles.length) {
+          btn.textContent = 'กำลังส่งเรื่อง...';
+          call('uploadImages', {
+            images: imgArr,
+            project: document.getElementById('ni-project').value,
+            category: 'issues'
+          }, function(ur) {
+            doSubmit(ur.success ? ur.urls : []);
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  } else {
+    doSubmit([]);
+  }
 }
 
 // ══ ADMIN ══
