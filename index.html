@@ -1813,7 +1813,8 @@ function generateReport() {
 
         var logs   = logR.success  ? logR.logs   : [];
         var issues = issR.success  ? issR.issues : [];
-        var dash   = dashR.success ? dashR       : {};
+        var dash   = (dashR && dashR.success) ? dashR : { overallActual:0, overallPlan:0, variance:0, categories:[] };
+        if (!dash.categories) dash.categories = [];
 
         // Filter date range
         logs = logs.filter(function(l) {
@@ -1869,9 +1870,9 @@ function printReport() {
     // iso-page = 1 หน้า A4 พอดี
     + '.iso-page {'
     + '  display: block;'
-    + '  width: 210mm;'
-    + '  min-height: 277mm;'
-    + '  padding: 10mm 12mm;'
+    + '  width: 100%;'
+    + '  padding: 0;'
+    + '  margin: 0;'
     + '  box-sizing: border-box;'
     + '  page-break-after: always;'
     + '  break-after: page;'
@@ -1887,7 +1888,10 @@ function printReport() {
     + '}'
     + '.rpt-page:last-child { page-break-after: avoid; break-after: avoid; }'
     // ตาราง
-    + 'table { width: 100%; border-collapse: collapse; }'
+    + 'table { width: 100%; border-collapse: collapse; table-layout: fixed; }'
+    + 'col:nth-child(1) { width: 58pt; }'
+    + 'col:nth-child(3), col:nth-child(4) { width: 56pt; }'
+    + 'col:nth-child(5) { width: 44pt; }'
     + 'th, td { border: 1px solid #333; padding: 5pt 4pt; vertical-align: top; }'
     + 'th { background: #f0f0f0; font-weight: 700; }'
     + 'tr { page-break-inside: avoid; break-inside: avoid; }'
@@ -1903,7 +1907,7 @@ function printReport() {
     + '.rpt-table { width: 100%; border-collapse: collapse; }'
     + '.rpt-table th, .rpt-table td { border: 1px solid #333; padding: 5pt 4pt; vertical-align: top; }'
     + '.rpt-table th { background: #f0f0f0; font-weight: 700; }'
-    + '@page { size: A4; margin: 0; }'
+    + '@page { size: A4 portrait; margin: 10mm 12mm; }'
     + '</style>'
     + '</head><body>'
     + reportHtml
