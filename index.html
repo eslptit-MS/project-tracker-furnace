@@ -286,12 +286,20 @@
 
   /* ══ PRINT STYLES ══ */
   @media print {
-    /* ซ่อนทุกอย่าง แสดงเฉพาะ report */
-    body > * { display: none !important; }
-    #rpt-output { display: block !important; position: static !important; }
-    .no-print, .rpt-print-btn { display: none !important; }
+    /* ซ่อนทุกอย่างยกเว้น rpt-output */
+    .app-header, .nav, #page-input, #page-dashboard, #page-tracking,
+    #page-issues, #page-new-issue, #page-admin, #page-gantt,
+    #page-report > .card, #rpt-loading,
+    .rpt-print-btn, .no-print,
+    .img-modal, .toast { display: none !important; }
+
+    /* แสดงเฉพาะ report page และ output */
+    #page-report { display: block !important; padding: 0 !important; }
+    #rpt-output  { display: block !important; }
+    .app-wrap    { padding-bottom: 0 !important; }
 
     body { margin: 0; padding: 0; background: #fff; color: #000; font-size: 11pt; }
+
     .rpt-page {
       display: block !important;
       page-break-after: always;
@@ -306,12 +314,17 @@
     }
     .rpt-page:last-child { page-break-after: avoid; }
     .iso-page { padding: 8mm 10mm; }
+
     .rpt-table { width: 100%; border-collapse: collapse; }
     .rpt-table th, .rpt-table td { border: 1px solid #444; padding: 4pt 6pt; vertical-align: top; }
-    .rpt-table th { background: #f0f0f0 !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .iso-table th { background: #f0f0f0 !important; font-size: 10.5pt; }
+    .rpt-table th {
+      background: #f0f0f0 !important;
+      font-weight: 700;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     .rpt-stat-grid { display: grid !important; grid-template-columns: repeat(4,1fr); gap: 8px; }
-    .rpt-stat { border: 1px solid #ddd; padding: 8px; text-align: center; border-radius: 4px; }
+    .rpt-stat { border: 1px solid #ddd !important; padding: 8px; text-align: center; }
     .rpt-stat-val { font-size: 20pt; font-weight: 700; }
     img { max-width: 75pt; max-height: 75pt; object-fit: cover; }
   }
@@ -593,6 +606,22 @@
 
 <!-- ══ PAGE: ADMIN ══ -->
 <div id="page-admin" class="page">
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">ตั้งค่าโครงการ</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <div class="form-label">รหัสโครงการ</div>
+        <input type="text" id="admin-proj-code" placeholder="เช่น ESL-PE-2025-001">
+      </div>
+      <div>
+        <div class="form-label">ชื่อบริษัท</div>
+        <input type="text" id="admin-company" placeholder="เช่น บริษัท อีสเทิร์นซิลิเกต จำกัด">
+      </div>
+    </div>
+    <button class="btn-sm" style="margin-top:10px;color:var(--green);border-color:var(--green)" onclick="saveProjectSettings()">บันทึกการตั้งค่า</button>
+    <div id="settings-saved" style="display:none;font-size:12px;color:var(--green);margin-top:6px">บันทึกแล้ว ✓</div>
+  </div>
+
   <div class="card" id="admin-cat-card">
     <div class="card-title">จัดการหมวดงาน</div>
     <div id="admin-loading" class="loading"><div class="spinner"></div>กำลังโหลด...</div>
@@ -759,6 +788,7 @@ function initApp() {
   var dd    = String(today.getDate()).padStart(2,'0');
   document.getElementById('in-date').value = yyyy+'-'+mm+'-'+dd;
 
+  loadProjectSettings();
   // โหลดแค่ badge count ของ Issues (เบา)
   call('getIssues', {}, function(r) {
     if (!r.success) return;
@@ -1350,6 +1380,30 @@ function submitIssue() {
   }
 }
 
+// ══ PROJECT SETTINGS ══
+var projectSettings = { code: 'ESL-PE-2025-001', company: 'บริษัท อีสเทิร์นซิลิเกต จำกัด' };
+
+function loadProjectSettings() {
+  try {
+    var saved = localStorage.getItem('projectSettings');
+    if (saved) { var p = JSON.parse(saved); projectSettings.code = p.code||projectSettings.code; projectSettings.company = p.company||projectSettings.company; }
+  } catch(e) {}
+  var ce = document.getElementById('admin-proj-code');
+  var co = document.getElementById('admin-company');
+  if (ce) ce.value = projectSettings.code;
+  if (co) co.value = projectSettings.company;
+}
+
+function saveProjectSettings() {
+  var ce = document.getElementById('admin-proj-code');
+  var co = document.getElementById('admin-company');
+  if (ce && ce.value.trim()) projectSettings.code    = ce.value.trim();
+  if (co && co.value.trim()) projectSettings.company = co.value.trim();
+  try { localStorage.setItem('projectSettings', JSON.stringify(projectSettings)); } catch(e) {}
+  var el = document.getElementById('settings-saved');
+  if (el) { el.style.display='block'; setTimeout(function(){ el.style.display='none'; }, 2000); }
+}
+
 // ══ ADMIN ══
 function loadAdminCats() {
   document.getElementById('admin-loading').style.display = 'block';
@@ -1778,12 +1832,12 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
     html += '<div class="rpt-page iso-page">';
     // Header
     html += '<div style="text-align:center;margin-bottom:8pt">'
-      + '<div style="font-size:15pt;font-weight:700">บริษัท อีสเทิร์นซิลิเกต จำกัด</div>'
+      + '<div style="font-size:15pt;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
       + '<div style="font-size:13pt;font-weight:700;margin-top:4pt">ใบแสดงความคืบหน้าในการออกแบบ / การดำเนินการ</div>'
       + '</div>'
       + '<div style="display:flex;justify-content:space-between;margin-bottom:8pt;font-size:11pt">'
       + '<div><strong>Project :</strong> &nbsp;' + escHtml(proj) + '</div>'
-      + '<div><strong>รหัสโครงการ :</strong> &nbsp;ESL-PE-2025-001</div>'
+      + '<div><strong>รหัสโครงการ :</strong> &nbsp;' + escHtml(projectSettings.code) + '</div>'
       + '</div>'
       + '<div style="font-size:10pt;color:#555;margin-bottom:6pt">'
       + 'ช่วงวันที่: ' + fmtDateTH(from) + ' — ' + fmtDateTH(to)
@@ -1859,7 +1913,7 @@ function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
 
   // Header
   html += '<div style="text-align:center;border-bottom:2px solid #1D9E75;padding-bottom:10px;margin-bottom:14px">'
-    + '<div style="font-size:18px;font-weight:700">บริษัท อีสเทิร์นซิลิเกต จำกัด</div>'
+    + '<div style="font-size:18px;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
     + '<div style="font-size:15px;font-weight:600;margin-top:4px;color:#1D9E75">PROGRESS SUMMARY REPORT</div>'
     + '<div style="font-size:12px;color:#666;margin-top:6px">'
     + 'Project: <strong>' + escHtml(proj) + '</strong>'
@@ -1953,7 +2007,7 @@ function renderStatusReport(proj, from, to, dash, issues) {
 
   // Header
   html += '<div style="text-align:center;border-bottom:2px solid #1D9E75;padding-bottom:10px;margin-bottom:14px">'
-    + '<div style="font-size:18px;font-weight:700">บริษัท อีสเทิร์นซิลิเกต จำกัด</div>'
+    + '<div style="font-size:18px;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
     + '<div style="font-size:15px;font-weight:600;margin-top:4px;color:#185FA5">PROJECT STATUS REPORT</div>'
     + '<div style="font-size:12px;color:#666;margin-top:6px">'
     + 'Project: <strong>' + escHtml(proj) + '</strong>'
@@ -2050,7 +2104,7 @@ function renderIssueReport(proj, from, to, issues) {
 
   // Header
   html += '<div style="text-align:center;border-bottom:2px solid #185FA5;padding-bottom:10px;margin-bottom:14px">'
-    + '<div style="font-size:18px;font-weight:700">บริษัท อีสเทิร์นซิลิเกต จำกัด</div>'
+    + '<div style="font-size:18px;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
     + '<div style="font-size:15px;font-weight:600;margin-top:4px;color:#185FA5">ISSUE & ACTION REPORT</div>'
     + '<div style="font-size:12px;color:#666;margin-top:6px">'
     + 'Project: <strong>' + escHtml(proj) + '</strong>'
@@ -2160,7 +2214,7 @@ function showPage(p, btn) {
   if (p === 'report')    { initReportPage(); }
   if (p === 'issues')    loadIssues();
   if (p === 'new-issue') loadNiCategories();
-  if (p === 'admin')     loadAdminCats();
+  if (p === 'admin')     { loadAdminCats(); loadProjectSettings(); }
   if (p === 'new-issue') loadNiCategories();
 }
 
