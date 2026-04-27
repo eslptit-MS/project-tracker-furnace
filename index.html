@@ -1829,7 +1829,13 @@ function generateReport() {
         if (cat) logs = logs.filter(function(l){ return l.category === cat; });
 
         if      (type === 'daily')  renderDailyReport(proj, from, to, logs, cat);
-        else if (type === 'weekly') renderWeeklyReport(proj, from, to, logs, dash, cat);
+        else if (type === 'weekly') {
+          // debug: ตรวจสอบข้อมูล dash
+          if (!dashR || !dashR.success) {
+            showToast('Dashboard error: ' + (dashR ? dashR.error || 'unknown' : 'no response'));
+          }
+          renderWeeklyReport(proj, from, to, logs, dash, cat);
+        }
         else if (type === 'status') renderStatusReport(proj, from, to, dash, issues);
         else if (type === 'issue')  renderIssueReport(proj, from, to, issues);
       });
@@ -1903,13 +1909,13 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
     return;
   }
 
-  // คำนวณความสูงโดยประมาณ (px ที่ 96dpi, A4 content area ≈ 230mm = 870px)
-  // หัก header ≈ 55px, footer ≈ 20px → เหลือตาราง ≈ 795px
-  var TABLE_AREA  = 795;
-  var THEAD_H     = 30;
-  var BASE_ROW    = 38;   // แถวไม่มีรูป
-  var TEXT_LINE   = 16;   // ต่อบรรทัดเพิ่ม
-  var PHOTO_H     = 82;   // แถวมีรูป
+  // A4 @ 96dpi = 1122px, margin 10mm top+bottom = 76px, header ≈ 60px, footer ≈ 22px
+  // พื้นที่ตาราง = 1122 - 76 - 60 - 22 = 964px แต่ใช้จริง 85% เผื่อ browser variance
+  var TABLE_AREA  = 720;  // conservative - ให้เผื่อ
+  var THEAD_H     = 32;
+  var BASE_ROW    = 40;
+  var TEXT_LINE   = 17;
+  var PHOTO_H     = 90;   // รูป + spacing
 
   function rowH(l) {
     var h = BASE_ROW;
