@@ -1805,19 +1805,20 @@ function generateReport() {
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
   loading.style.display = 'block'; output.innerHTML = '';
 
+  // โหลด logs และ categories พร้อมกัน (ไม่รอ getDashboard ที่ช้า)
   call('getProgressLog', { project: proj }, function(logR) {
-    call('getIssues', { project: proj }, function(issR) {
-      call('getDashboard', { project: proj }, function(dashR) {
+    call('getCategories', { project: proj }, function(catR) {
+      call('getIssues', { project: proj }, function(issR) {
+
         loading.style.display = 'none';
         btn.disabled = false; btn.textContent = 'สร้างรายงาน';
 
-        var logs   = logR.success  ? logR.logs   : [];
-        var issues = issR.success  ? issR.issues : [];
-        var dash   = (dashR && dashR.success) ? dashR : { overallActual:0, overallPlan:0, variance:0, categories:[] };
-        if (!dash.categories) dash.categories = [];
+        var allLogs = logR.success ? logR.logs   : [];
+        var cats    = catR.success ? catR.categories : [];
+        var issues  = issR.success ? issR.issues : [];
 
         // Filter date range
-        logs = logs.filter(function(l) {
+        var logs = allLogs.filter(function(l) {
           var d = toISO(l.date); return d >= from && d <= to;
         });
         issues = issues.filter(function(i) {
@@ -1828,15 +1829,38 @@ function generateReport() {
         // Filter category
         if (cat) logs = logs.filter(function(l){ return l.category === cat; });
 
+        // คำนวณ actual % ของแต่ละ category จาก allLogs (latest entry)
+        var actualMap = {};
+        allLogs.forEach(function(l) {
+          if (!actualMap[l.category]) actualMap[l.category] = parseFloat(l.percent)||0;
+        });
+
+        // Build dash object จาก categories + actualMap
+        var totalWeight = 0, weightedActual = 0;
+        cats.forEach(function(c) {
+          c.actual = actualMap[c.name] || 0;
+          totalWeight += parseFloat(c.weight)||0;
+          weightedActual += c.actual * (parseFloat(c.weight)||0);
+        });
+        var overallActual = totalWeight > 0 ? Math.round(weightedActual/totalWeight) : 0;
+        var dash = {
+          success: true,
+          overallActual: overallActual,
+          overallPlan: 0,
+          variance: overallActual,
+          categories: cats
+        };
+
         if      (type === 'daily')  renderDailyReport(proj, from, to, logs, cat);
-        else if (type === 'weekly') {
-          // debug: ตรวจสอบข้อมูล dash
-          if (!dashR || !dashR.success) {
-            showToast('Dashboard error: ' + (dashR ? dashR.error || 'unknown' : 'no response'));
-          }
-          renderWeeklyReport(proj, from, to, logs, dash, cat);
+        else if (type === 'weekly') renderWeeklyReport(proj, from, to, logs, dash, cat);
+        else if (type === 'status') {
+          // Status report ยังต้องการ getDashboard
+          call('getDashboard', { project: proj }, function(dashR) {
+            var fullDash = (dashR && dashR.success) ? dashR : dash;
+            renderStatusReport(proj, from, to, fullDash, issues);
+          });
+          return;
         }
-        else if (type === 'status') renderStatusReport(proj, from, to, dash, issues);
         else if (type === 'issue')  renderIssueReport(proj, from, to, issues);
       });
     });
@@ -2018,10 +2042,10 @@ function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
   html += '<div class="rpt-page" style="max-width:210mm;margin:0 auto">';
 
   // Header
-  html += '<div style="text-align:center;border-bottom:2px solid #1D9E75;padding-bottom:10px;margin-bottom:14px">'
-    + '<div style="font-size:18px;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
-    + '<div style="font-size:15px;font-weight:600;margin-top:4px;color:#1D9E75">PROGRESS SUMMARY REPORT</div>'
-    + '<div style="font-size:12px;color:#666;margin-top:6px">'
+  html += '<div style="text-align:center;border-bottom:2px solid #1D9E75;padding-bottom:6px;margin-bottom:10px">'
+    + '<div style="font-size:15px;font-weight:700">'+escHtml(projectSettings.company)+'</div>'
+    + '<div style="font-size:13px;font-weight:600;margin-top:3px;color:#1D9E75">PROGRESS SUMMARY REPORT</div>'
+    + '<div style="font-size:11px;color:#666;margin-top:4px">'
     + 'Project: <strong>' + escHtml(proj) + '</strong>'
     + (catFilter ? ' &nbsp;|&nbsp; หมวดงาน: <strong>' + escHtml(catFilter) + '</strong>' : '')
     + ' &nbsp;|&nbsp; ช่วงวันที่: <strong>' + fmtDateTH(from) + ' — ' + fmtDateTH(to) + '</strong>'
@@ -2044,25 +2068,28 @@ function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
 
   // Category progress table
   if (cats.length) {
-    html += '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:8px">ความคืบหน้าแต่ละหมวดงาน</div>';
-    html += '<table class="rpt-table"><thead><tr>'
-      + '<th>หมวดงาน</th><th style="text-align:center">Weight</th>'
-      + '<th style="text-align:center">Actual %</th><th style="text-align:center">Plan %</th>'
-      + '<th style="text-align:center">Variance</th><th style="text-align:center">สถานะ</th>'
+    html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;margin-bottom:5px">ความคืบหน้าแต่ละหมวดงาน</div>';
+    html += '<table class="rpt-table" style="font-size:10px"><thead><tr>'
+      + '<th>หมวดงาน</th><th style="text-align:center;width:45px">Weight</th>'
+      + '<th style="text-align:center;width:55px">Actual %</th>'
+      + '<th style="text-align:center;width:55px">Plan %</th>'
+      + '<th style="text-align:center;width:60px">Variance</th>'
+      + '<th style="text-align:center;width:70px">สถานะ</th>'
       + '</tr></thead><tbody>';
     cats.forEach(function(c) {
       var vc = c.variance>=0?'#1D9E75':(c.variance<-10?'#E24B4A':'#BA7517');
-      var badge = c.status==='On Track'
-        ? '<span style="color:#1D9E75;font-weight:700">✅ On Track</span>'
-        : c.status==='Critical'
-        ? '<span style="color:#E24B4A;font-weight:700">🔴 Critical</span>'
-        : '<span style="color:#BA7517;font-weight:700">⚠️ Delay</span>';
+      var status = c.status||'On Track';
+      var badge = status==='On Track'
+        ? '<span style="color:#1D9E75;font-weight:700;font-size:9px">✅ On Track</span>'
+        : status==='Critical'
+        ? '<span style="color:#E24B4A;font-weight:700;font-size:9px">🔴 Critical</span>'
+        : '<span style="color:#BA7517;font-weight:700;font-size:9px">⚠️ Delay</span>';
       html += '<tr>'
-        + '<td>'+escHtml(c.name)+'</td>'
+        + '<td style="font-size:10px">'+escHtml(c.name)+'</td>'
         + '<td style="text-align:center">'+c.weight+'%</td>'
         + '<td style="text-align:center;font-weight:700;color:'+vc+'">'+c.actual+'%</td>'
-        + '<td style="text-align:center">'+c.planPct+'%</td>'
-        + '<td style="text-align:center;font-weight:700;color:'+vc+'">'+(c.variance>=0?'+':'')+c.variance+'%</td>'
+        + '<td style="text-align:center">'+(c.planPct||0)+'%</td>'
+        + '<td style="text-align:center;font-weight:700;color:'+vc+'">'+(c.variance>=0?'+':'')+((c.variance||0))+'%</td>'
         + '<td style="text-align:center">'+badge+'</td>'
         + '</tr>';
     });
@@ -2072,26 +2099,25 @@ function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
   // Activity log
   if (logs.length) {
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;margin:10px 0 6px">บันทึกกิจกรรมในช่วงเวลานี้</div>';
-    html += '<table class="rpt-table" style="font-size:11px"><thead><tr>'
-      + '<th style="width:70px">วันที่</th>'
-      + (catFilter ? '' : '<th style="width:110px">หมวดงาน</th>')
-      + '<th style="width:40px;text-align:center">%</th>'
+    html += '<table class="rpt-table" style="font-size:10px;table-layout:fixed;width:100%"><thead><tr>'
+      + '<th style="width:72px;white-space:nowrap">วันที่</th>'
+      + (catFilter ? '' : '<th style="width:100px;overflow:hidden">หมวดงาน</th>')
+      + '<th style="width:32px;text-align:center">%</th>'
       + '<th>รายละเอียด</th>'
-      + '<th style="width:65px">ผู้บันทึก</th>'
-      + '<th style="width:65px">ผู้ตรวจสอบ</th>'
+      + '<th style="width:50px">ผู้บันทึก</th>'
       + '</tr></thead><tbody>';
     var sortedLogs = logs.slice().sort(function(a,b){ return toISO(a.date)>toISO(b.date)?1:-1; });
     sortedLogs.forEach(function(l) {
-      // ตัดรายละเอียดไม่ให้ยาวเกิน 80 ตัวอักษร
       var det = l.detail || '';
-      if (det.length > 80) det = det.substring(0, 77) + '...';
-      html += '<tr>'
-        + '<td style="white-space:nowrap">'+escHtml(l.date)+'</td>'
-        + (catFilter ? '' : '<td>'+escHtml(l.category)+'</td>')
+      if (det.length > 60) det = det.substring(0, 57) + '...';
+      var cat2 = l.category || '';
+      if (cat2.length > 18) cat2 = cat2.substring(0,16)+'..';
+      html += '<tr style="break-inside:avoid">'
+        + '<td style="white-space:nowrap;font-size:9px">'+escHtml(l.date)+'</td>'
+        + (catFilter ? '' : '<td style="font-size:9px;overflow:hidden;word-break:break-word">'+escHtml(cat2)+'</td>')
         + '<td style="text-align:center;font-weight:700">'+l.percent+'%</td>'
-        + '<td>'+escHtml(det)+'</td>'
-        + '<td>'+escHtml(l.user)+'</td>'
-        + '<td>'+escHtml(l.verifiedBy||'')+'</td>'
+        + '<td style="word-break:break-word">'+escHtml(det)+'</td>'
+        + '<td style="font-size:9px">'+escHtml(l.user)+'</td>'
         + '</tr>';
     });
     html += '</tbody></table>';
