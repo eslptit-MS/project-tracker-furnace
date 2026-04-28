@@ -822,7 +822,7 @@ function initApp() {
 }
 
 // ── API endpoint (เปลี่ยนเป็น URL ของ Apps Script ที่ Deploy แล้ว) ──
-var API_URL = 'https://script.google.com/macros/s/AKfycbzj9RMCFxMznO63KrCeP27ov6Oxc778Jsa7qoPBWyrNdZvIGVoYJJvj1Qo0UR72AZzC/exec';
+var API_URL = 'YOUR_APPS_SCRIPT_URL';
 
 function call(action, payload, cb) {
   fetch(API_URL, {
@@ -1829,25 +1829,40 @@ function generateReport() {
         // Filter category
         if (cat) logs = logs.filter(function(l){ return l.category === cat; });
 
-        // คำนวณ actual % ของแต่ละ category จาก allLogs (latest entry)
+        // คำนวณ actual % จาก allLogs (latest entry per category)
         var actualMap = {};
         allLogs.forEach(function(l) {
           if (!actualMap[l.category]) actualMap[l.category] = parseFloat(l.percent)||0;
         });
 
-        // Build dash object จาก categories + actualMap
-        var totalWeight = 0, weightedActual = 0;
+        // คำนวณ plan % จาก planStart/planEnd ตามวันปัจจุบัน
+        var today = new Date();
+        var totalWeight = 0, weightedActual = 0, weightedPlan = 0;
         cats.forEach(function(c) {
           c.actual = actualMap[c.name] || 0;
-          totalWeight += parseFloat(c.weight)||0;
-          weightedActual += c.actual * (parseFloat(c.weight)||0);
+          // คำนวณ plan % ตาม elapsed time
+          var pStart = c.planStart ? new Date(c.planStart) : null;
+          var pEnd   = c.planEnd   ? new Date(c.planEnd)   : null;
+          if (pStart && pEnd && pEnd > pStart) {
+            var elapsed = Math.max(0, Math.min(1, (today - pStart)/(pEnd - pStart)));
+            c.planPct = Math.round(elapsed * 100);
+          } else {
+            c.planPct = 0;
+          }
+          c.variance = c.actual - c.planPct;
+          c.status = c.variance >= 0 ? 'On Track' : (c.variance < -10 ? 'Critical' : 'Delay');
+          var w = parseFloat(c.weight)||0;
+          totalWeight    += w;
+          weightedActual += c.actual  * w;
+          weightedPlan   += c.planPct * w;
         });
         var overallActual = totalWeight > 0 ? Math.round(weightedActual/totalWeight) : 0;
+        var overallPlan   = totalWeight > 0 ? Math.round(weightedPlan  /totalWeight) : 0;
         var dash = {
           success: true,
           overallActual: overallActual,
-          overallPlan: 0,
-          variance: overallActual,
+          overallPlan:   overallPlan,
+          variance:      overallActual - overallPlan,
           categories: cats
         };
 
@@ -1935,11 +1950,12 @@ function renderDailyReport(proj, from, to, logs, catFilter) {
 
   // A4 @ 96dpi = 1122px, margin 10mm top+bottom = 76px, header ≈ 60px, footer ≈ 22px
   // พื้นที่ตาราง = 1122 - 76 - 60 - 22 = 964px แต่ใช้จริง 85% เผื่อ browser variance
-  var TABLE_AREA  = 720;  // conservative - ให้เผื่อ
+  // A4 @96dpi popup window: content = ~900px, header~58px, footer~20px → table ~822px
+  var TABLE_AREA  = 800;
   var THEAD_H     = 32;
-  var BASE_ROW    = 40;
-  var TEXT_LINE   = 17;
-  var PHOTO_H     = 90;   // รูป + spacing
+  var BASE_ROW    = 36;
+  var TEXT_LINE   = 16;
+  var PHOTO_H     = 82;
 
   function rowH(l) {
     var h = BASE_ROW;
@@ -2101,10 +2117,10 @@ function renderWeeklyReport(proj, from, to, logs, dash, catFilter) {
     html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#666;margin:10px 0 6px">บันทึกกิจกรรมในช่วงเวลานี้</div>';
     html += '<table class="rpt-table" style="font-size:10px;table-layout:fixed;width:100%"><thead><tr>'
       + '<th style="width:72px;white-space:nowrap">วันที่</th>'
-      + (catFilter ? '' : '<th style="width:100px;overflow:hidden">หมวดงาน</th>')
-      + '<th style="width:32px;text-align:center">%</th>'
+      + (catFilter ? '' : '<th style="width:105px;overflow:hidden">หมวดงาน</th>')
+      + '<th style="width:42px;text-align:center">%</th>'
       + '<th>รายละเอียด</th>'
-      + '<th style="width:50px">ผู้บันทึก</th>'
+      + '<th style="width:52px">ผู้บันทึก</th>'
       + '</tr></thead><tbody>';
     var sortedLogs = logs.slice().sort(function(a,b){ return toISO(a.date)>toISO(b.date)?1:-1; });
     sortedLogs.forEach(function(l) {
